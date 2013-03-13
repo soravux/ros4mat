@@ -1,0 +1,7 @@
+bool subscribe
+bool[8] adcChannels
+uint16 adcFreqAcq
+uint16 adcFreqPoll
+uint32 adcBufferSize
+---
+int8 ret
