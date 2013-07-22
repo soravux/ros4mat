@@ -1161,75 +1161,75 @@ int jpeg_filepos = 0;
  
 unsigned char pjpeg_need_bytes_callback(unsigned char* pBuf, unsigned char buf_size, unsigned char *pBytes_actually_read, void *pCallback_data)
 {
-    unsigned int n = min((unsigned int)(jpeg_filesize - jpeg_filepos), (unsigned int)buf_size);
+    /*unsigned int n = min((unsigned int)(jpeg_filesize - jpeg_filepos), (unsigned int)buf_size);
     if (n && (fread(pBuf, 1, n, jpegfile) != n)) {
         return PJPG_STREAM_READ_ERROR;
     }
     *pBytes_actually_read = (unsigned char)(n);
     jpeg_filepos += n;
-    return 0;
+    return 0;*/
 }
  
 void decodeJPEG(const char *inStream, uint32_t dataSize, unsigned char *outImage)
 {
-    pjpeg_image_info_t imageInfo;
-    jpeg_filesize = dataSize;
-    int status = pjpeg_decode_init(&imageInfo, pjpeg_need_bytes_callback, NULL);
-   //const unsigned int row_pitch = imageInfo.m_width * imageInfo.m_comps;
-    int mcu_x = 0;
-    int mcu_y = 0;
-
-    for ( ; ; ) {
-        status = pjpeg_decode_mcu();
-
-        /* Handle case when its done. */
-        if (status) {
-            if (status != PJPG_NO_MORE_BLOCKS) { return; }
-            break;
-        }
-        if (mcu_y >= imageInfo.m_MCUSPerCol) { return; }
-
-        /* Copy MCU's pixel blocks into the destination bitmap. */
-        for (int y = 0; y < imageInfo.m_MCUHeight; y += 8) {
-            const int by_limit = min(8, imageInfo.m_height - (mcu_y * imageInfo.m_MCUHeight + y));
-            for (int x = 0; x < imageInfo.m_MCUWidth; x += 8) {
-
-                unsigned int src_ofs = (x * 8U) + (y * 16U);
-                const unsigned char *pSrcR = imageInfo.m_pMCUBufR + src_ofs;
-                const unsigned char *pSrcG = imageInfo.m_pMCUBufG + src_ofs;
-                const unsigned char *pSrcB = imageInfo.m_pMCUBufB + src_ofs;
-
-                const int bx_limit = min(8, imageInfo.m_width - (mcu_x * imageInfo.m_MCUWidth + x));
-
-                if (imageInfo.m_scanType == PJPG_GRAYSCALE) {
-                    for (int by = 0; by < by_limit; by++) {
-                        for (int bx = 0; bx < bx_limit; bx++) {
-                            unsigned int color = ((*pSrcR++) << 16);   
-                            (*lcd).pixel(mcu_x*imageInfo.m_MCUWidth+x+bx,mcu_y*imageInfo.m_MCUHeight+y+by,color);
-                        }
-                        pSrcR += (8 - bx_limit);
-                    }
-                } else {
-                    for (int by = 0; by < by_limit; by++) {
-                        for (int bx = 0; bx < bx_limit; bx++) {
-                            unsigned int color = ((*pSrcR++) << 16) | ((*pSrcG++) << 8) | (*pSrcB++);
-                            (*lcd).pixel((130-imageInfo.m_width)/2+mcu_x*imageInfo.m_MCUWidth+x+bx,(130-imageInfo.m_height)/2+mcu_y*imageInfo.m_MCUHeight+y+by,color);
-                        }
-
-                        pSrcR += (8 - bx_limit);
-                        pSrcG += (8 - bx_limit);
-                        pSrcB += (8 - bx_limit);
-                    }
-                }
-            }
-        }
-
-        mcu_x++;
-        if (mcu_x == imageInfo.m_MCUSPerRow) {
-            mcu_x = 0;
-            mcu_y++;
-        }
-    }
+/*    pjpeg_image_info_t imageInfo;
+/*    jpeg_filesize = dataSize;
+/*    int status = pjpeg_decode_init(&imageInfo, pjpeg_need_bytes_callback, NULL);
+/*    /* const unsigned int row_pitch = imageInfo.m_width * imageInfo.m_comps; */
+/*    int mcu_x = 0;
+/*    int mcu_y = 0;
+/*
+/*    for ( ; ; ) {
+/*        status = pjpeg_decode_mcu();
+/*
+/*        /* Handle case when its done. */
+/*        if (status) {
+/*            if (status != PJPG_NO_MORE_BLOCKS) { return; }
+/*            break;
+/*        }
+/*        if (mcu_y >= imageInfo.m_MCUSPerCol) { return; }
+/*
+/*        /* Copy MCU's pixel blocks into the destination bitmap. */
+/*        for (int y = 0; y < imageInfo.m_MCUHeight; y += 8) {
+/*            const int by_limit = min(8, imageInfo.m_height - (mcu_y * imageInfo.m_MCUHeight + y));
+/*            for (int x = 0; x < imageInfo.m_MCUWidth; x += 8) {
+/*
+/*                unsigned int src_ofs = (x * 8U) + (y * 16U);
+/*                const unsigned char *pSrcR = imageInfo.m_pMCUBufR + src_ofs;
+/*                const unsigned char *pSrcG = imageInfo.m_pMCUBufG + src_ofs;
+/*                const unsigned char *pSrcB = imageInfo.m_pMCUBufB + src_ofs;
+/*
+/*                const int bx_limit = min(8, imageInfo.m_width - (mcu_x * imageInfo.m_MCUWidth + x));
+/*
+/*                if (imageInfo.m_scanType == PJPG_GRAYSCALE) {
+/*                    for (int by = 0; by < by_limit; by++) {
+/*                        for (int bx = 0; bx < bx_limit; bx++) {
+/*                            unsigned int color = ((*pSrcR++) << 16);   
+/*                            (*lcd).pixel(mcu_x*imageInfo.m_MCUWidth+x+bx,mcu_y*imageInfo.m_MCUHeight+y+by,color);
+/*                        }
+/*                        pSrcR += (8 - bx_limit);
+/*                    }
+/*                } else {
+/*                    for (int by = 0; by < by_limit; by++) {
+/*                        for (int bx = 0; bx < bx_limit; bx++) {
+/*                            unsigned int color = ((*pSrcR++) << 16) | ((*pSrcG++) << 8) | (*pSrcB++);
+/*                            (*lcd).pixel((130-imageInfo.m_width)/2+mcu_x*imageInfo.m_MCUWidth+x+bx,(130-imageInfo.m_height)/2+mcu_y*imageInfo.m_MCUHeight+y+by,color);
+/*                        }
+/*
+/*                        pSrcR += (8 - bx_limit);
+/*                        pSrcG += (8 - bx_limit);
+/*                        pSrcB += (8 - bx_limit);
+/*                    }
+/*                }
+/*            }
+/*        }
+/*
+/*        mcu_x++;
+/*        if (mcu_x == imageInfo.m_MCUSPerRow) {
+/*            mcu_x = 0;
+/*            mcu_y++;
+/*        }
+/*    }*/
 }
 
 
