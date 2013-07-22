@@ -29,6 +29,20 @@
     #pragma pack(1)
 #endif
 
+/*******************************************************************************
+ *                                   Enums
+ ******************************************************************************/
+
+enum compression_type {
+    R4M_COMP_NONE,
+    R4M_COMP_JPEG,
+    R4M_COMP_ZLIB
+};
+
+/*******************************************************************************
+ *                              Packet Headers
+ ******************************************************************************/
+
 #define MSGID_HEADER_NOCOMPRESSION 0x00
 #define MSGID_HEADER_ZLIBCOMPRESSION 0x01
  typedef struct msgHeader msgHeader;
@@ -160,6 +174,7 @@ struct msgGps{
     uint32_t height;
     unsigned char channels;
     uint32_t sizeData;
+    uint8_t compressionType;
     double timestamp;           /* Timestamp de l'acquisition de l'image */
 } PACKEDSTRUCT;
 
