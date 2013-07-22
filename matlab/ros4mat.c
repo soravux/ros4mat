@@ -1,5 +1,3 @@
-/*$T ros4mat.c GC 1.150 2013-07-22 12:11:27 */
-
 /*
  *    This file is part of ros4mat.
  *
