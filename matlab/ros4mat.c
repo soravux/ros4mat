@@ -299,6 +299,89 @@ tctext[] =
     { "ordinateur", MSGID_COMPUTER }
 };
 
+
+/*******************************************************************************
+ *
+ *                           Image helpers (JPEG)
+ *
+ ******************************************************************************/
+
+int jpeg_filesize = 0;
+int jpeg_filepos = 0;
+
+unsigned char pjpeg_need_bytes_callback(unsigned char* pBuf, unsigned char buf_size, unsigned char *pBytes_actually_read, void *pCallback_data)
+{
+    /*unsigned int n = min((unsigned int)(jpeg_filesize - jpeg_filepos), (unsigned int)buf_size);
+    if (n && (fread(pBuf, 1, n, jpegfile) != n)) {
+        return PJPG_STREAM_READ_ERROR;
+    }
+    *pBytes_actually_read = (unsigned char)(n);
+    jpeg_filepos += n;
+    return 0;*/
+}
+
+void decodeJPEG(const char *inStream, uint32_t dataSize, unsigned char *outImage)
+{
+/*    pjpeg_image_info_t imageInfo;
+/*    jpeg_filesize = dataSize;
+/*    int status = pjpeg_decode_init(&imageInfo, pjpeg_need_bytes_callback, NULL);
+/*    /* const unsigned int row_pitch = imageInfo.m_width * imageInfo.m_comps; */
+/*    int mcu_x = 0;
+/*    int mcu_y = 0;
+/*
+/*    for ( ; ; ) {
+/*        status = pjpeg_decode_mcu();
+/*
+/*        /* Handle case when its done. */
+/*        if (status) {
+/*            if (status != PJPG_NO_MORE_BLOCKS) { return; }
+/*            break;
+/*        }
+/*        if (mcu_y >= imageInfo.m_MCUSPerCol) { return; }
+/*
+/*        /* Copy MCU's pixel blocks into the destination bitmap. */
+/*        for (int y = 0; y < imageInfo.m_MCUHeight; y += 8) {
+/*            const int by_limit = min(8, imageInfo.m_height - (mcu_y * imageInfo.m_MCUHeight + y));
+/*            for (int x = 0; x < imageInfo.m_MCUWidth; x += 8) {
+/*
+/*                unsigned int src_ofs = (x * 8U) + (y * 16U);
+/*                const unsigned char *pSrcR = imageInfo.m_pMCUBufR + src_ofs;
+/*                const unsigned char *pSrcG = imageInfo.m_pMCUBufG + src_ofs;
+/*                const unsigned char *pSrcB = imageInfo.m_pMCUBufB + src_ofs;
+/*
+/*                const int bx_limit = min(8, imageInfo.m_width - (mcu_x * imageInfo.m_MCUWidth + x));
+/*
+/*                if (imageInfo.m_scanType == PJPG_GRAYSCALE) {
+/*                    for (int by = 0; by < by_limit; by++) {
+/*                        for (int bx = 0; bx < bx_limit; bx++) {
+/*                            unsigned int color = ((*pSrcR++) << 16);   
+/*                            (*lcd).pixel(mcu_x*imageInfo.m_MCUWidth+x+bx,mcu_y*imageInfo.m_MCUHeight+y+by,color);
+/*                        }
+/*                        pSrcR += (8 - bx_limit);
+/*                    }
+/*                } else {
+/*                    for (int by = 0; by < by_limit; by++) {
+/*                        for (int bx = 0; bx < bx_limit; bx++) {
+/*                            unsigned int color = ((*pSrcR++) << 16) | ((*pSrcG++) << 8) | (*pSrcB++);
+/*                            (*lcd).pixel((130-imageInfo.m_width)/2+mcu_x*imageInfo.m_MCUWidth+x+bx,(130-imageInfo.m_height)/2+mcu_y*imageInfo.m_MCUHeight+y+by,color);
+/*                        }
+/*
+/*                        pSrcR += (8 - bx_limit);
+/*                        pSrcG += (8 - bx_limit);
+/*                        pSrcB += (8 - bx_limit);
+/*                    }
+/*                }
+/*            }
+/*        }
+/*
+/*        mcu_x++;
+/*        if (mcu_x == imageInfo.m_MCUSPerRow) {
+/*            mcu_x = 0;
+/*            mcu_y++;
+/*        }
+/*    }*/
+}
+
 /*******************************************************************************
  *
  *                               ROS4MAT API
@@ -829,10 +912,12 @@ void logico_gps(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 void logico_camera(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
     char            *msg = NULL;
+    char            *inPixelSource;
     msgHeader       lHeader;
     msgCam          lCam;
     unsigned int    i;
     unsigned int    a, b, y, x;
+    uint32_t        msg_pos;
     unsigned char   *out_data;
     double          *out_data_ts;
     unsigned int    sizeImg = 0;
@@ -853,6 +938,8 @@ void logico_camera(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     out_data = (unsigned char *) mxGetData(plhs[0]);
     out_data_ts = (double *) mxGetPr(plhs[1]);
 
+    msg_pos = sizeof(msgHeader) + sizeof(msgCam) * lHeader.size;
+
     for(i = 0; i < lHeader.size; i++)
     {
         /* On passe sur toutes les images */
@@ -861,14 +948,31 @@ void logico_camera(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         sizeImg = lCam.width * lCam.height * 3;
         y = 0;
 
+        /* Get image source */
+        switch (lCam.compressionType) {
+            case R4M_COMP_JPEG:
+                /* Decompress the image first and set the pixel source pointer to it */
+                inPixelSource = (char *) mxMalloc(sizeImg);
+                decodeJPEG(msg + msg_pos, lCam.sizeData, inPixelSource);
+                msg_pos += lCam.sizeData;
+                break;
+            default:
+            case R4M_COMP_NONE:
+                /* Set the pixel source pointer directly to the message header */
+                inPixelSource = &msg[sizeof(msgHeader)               /* Skip the packet header */
+                                     + sizeof(msgCam) * lHeader.size /* Skip the msgCam Header */
+                                     + sizeImg * i];           /* Skip previous images */
+        }
+
         /* Formattage pour Matlab */
         for(y = 0, b = 0; y < lCam.width * lCam.height * 3 - lCam.width * 3; b++, y += lCam.width * 3)
         {
             for(x = y, a = b; x < y + lCam.width * 3; a += lCam.height)
             {
-                out_data[a + i * sizeImg] = msg[sizeof(msgHeader) + sizeof(msgCam) * lHeader.size + sizeImg * i + x++];
-                out_data[a + i * sizeImg + lCam.width * lCam.height] = msg[sizeof(msgHeader) + sizeof(msgCam) * lHeader.size + sizeImg * i + x++];
-                out_data[a + i * sizeImg + lCam.width * lCam.height * 2] = msg[sizeof(msgHeader) + sizeof(msgCam) * lHeader.size + sizeImg * i + x++];
+                #define DESTINATION_STRIDE     a + i * sizeImg + lCam.width * lCam.height
+                out_data[DESTINATION_STRIDE * 0] = inPixelSource[x++];
+                out_data[DESTINATION_STRIDE * 1] = inPixelSource[x++];
+                out_data[DESTINATION_STRIDE * 2] = inPixelSource[x++];
             }
         }
 
@@ -882,12 +986,12 @@ void logico_camera(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 void logico_camera_stereo(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
     char            *msg = NULL;
-    char            *inPixelSource;
+    char            *inPixelSource_l, *inPixelSource_r;
     msgHeader       lHeader;
-    msgCam          lCam;
+    msgCam          lCam_l, lCam_r;
     unsigned int    i;
     unsigned int    a, b, y, x;
-    uint32_t        msg_pos = 0;
+    uint32_t        msg_pos;
     unsigned char   *out_data_l, *out_data_r;
     double          *out_data_ts;
     unsigned int    sizeImg = 0;
@@ -897,10 +1001,10 @@ void logico_camera_stereo(int nlhs, mxArray *plhs[], int nrhs, const mxArray *pr
 
     lHeader = logico_send_data_request(MSGID_WEBCAM_STEREO, &msg, sizeof(msgCam));
 
-    memcpy(&lCam, msg + sizeof(msgHeader), sizeof(msgCam));
+    memcpy(&lCam_l, msg + sizeof(msgHeader), sizeof(msgCam));
 
-    cam_size[0] = lCam.height;
-    cam_size[1] = lCam.width;
+    cam_size[0] = lCam_l.height;
+    cam_size[1] = lCam_l.width;
     cam_size[3] = lHeader.size;
 
     plhs[0] = mxCreateNumericArray(4, cam_size, mxUINT8_CLASS, mxREAL);
@@ -910,33 +1014,52 @@ void logico_camera_stereo(int nlhs, mxArray *plhs[], int nrhs, const mxArray *pr
     out_data_r = (unsigned char *) mxGetData(plhs[1]);
     out_data_ts = (double *) mxGetPr(plhs[2]);
 
-    for(i = 0; i < lHeader.size; ++i)
+    msg_pos = sizeof(msgHeader) + sizeof(msgCam) * lHeader.size;
+
+    for(i = 0; i < lHeader.size; i += 2)
     {
         /* On passe sur toutes les images */
-        memcpy(&lCam, msg + sizeof(msgHeader) + i * sizeof(msgCam), sizeof(msgCam));
+        memcpy(&lCam_l, msg + sizeof(msgHeader) + (i + 0) * sizeof(msgCam), sizeof(msgCam));
+        memcpy(&lCam_r, msg + sizeof(msgHeader) + (i + 1) * sizeof(msgCam), sizeof(msgCam));
 
-        out_data_ts[i] = (double) lCam.timestamp;
+        out_data_ts[i / 2] = (double) lCam_l.timestamp;
 
-        sizeImg = lCam.width * lCam.height * 3;
+        sizeImg = lCam_l.width * lCam_l.height * 3;
         y = 0;
 
-        msg_pos += lCam.sizeData;
+        /* Get image source */
+        switch (lCam_l.compressionType) {
+            case R4M_COMP_JPEG:
+                /* Decompress the image first and set the pixel source pointer to it */
+                inPixelSource_l = (char *) mxMalloc(sizeImg);
+                inPixelSource_r = (char *) mxMalloc(sizeImg);
+                decodeJPEG(msg + msg_pos, lCam_l.sizeData, inPixelSource_l);
+                msg_pos += lCam_l.sizeData;
+                decodeJPEG(msg + msg_pos, lCam_r.sizeData, inPixelSource_r);
+                msg_pos += lCam_r.sizeData;
+                break;
+            default:
+            case R4M_COMP_NONE:
+                /* Set the pixel source pointer directly to the message header */
+                inPixelSource_l = &msg[sizeof(msgHeader)               /* Skip the packet header */
+                                       + sizeof(msgCam) * lHeader.size /* Skip the msgCam Header */
+                                       + sizeImg * i];           /* Skip previous images */
+                inPixelSource_r = inPixelSource_l + sizeImg; /* One image further */
+        }
 
         /* Formattage pour Matlab */
-        for(y = 0, b = 0; y < lCam.width * lCam.height * 3 - lCam.width * 3; b++, y += lCam.width * 3)
+        for(y = 0, b = 0; y < lCam_l.width * lCam_l.height * 3 - lCam_l.width * 3; b++, y += lCam_l.width * 3)
         {
-            for(x = y, a = b; x < y + lCam.width * 3; a += lCam.height)
+            for(x = y, a = b; x < y + lCam_l.width * 3; a += lCam_l.height)
             {
                 /* Handling both images at the same time. First R left, then R right, then G left... */
-                out_data_l[a + i * sizeImg + lCam.width * lCam.height * 0] = msg[sizeof(msgHeader)    /* Skip the packet header */
-                + sizeof(msgCam) * lHeader.size /* Skip the msgCam Header */
-                + sizeImg * (i * 2)                /* Skip previous images */
-                + x];    /* Take value */
-                out_data_r[a + i * sizeImg + lCam.width * lCam.height * 0] = msg[sizeof(msgHeader) + sizeof(msgCam) * lHeader.size + sizeImg * (i * 2 + 1) + x++];
-                out_data_l[a + i * sizeImg + lCam.width * lCam.height * 1] = msg[sizeof(msgHeader) + sizeof(msgCam) * lHeader.size + sizeImg * (i * 2) + x];
-                out_data_r[a + i * sizeImg + lCam.width * lCam.height * 1] = msg[sizeof(msgHeader) + sizeof(msgCam) * lHeader.size + sizeImg * (i * 2 + 1) + x++];
-                out_data_l[a + i * sizeImg + lCam.width * lCam.height * 2] = msg[sizeof(msgHeader) + sizeof(msgCam) * lHeader.size + sizeImg * (i * 2) + x];
-                out_data_r[a + i * sizeImg + lCam.width * lCam.height * 2] = msg[sizeof(msgHeader) + sizeof(msgCam) * lHeader.size + sizeImg * (i * 2 + 1) + x++];
+                #define DESTINATION_STRIDE_STEREO     a + i * sizeImg + lCam_l.width * lCam_l.height
+                out_data_l[DESTINATION_STRIDE_STEREO * 0] = inPixelSource_l[x];
+                out_data_r[DESTINATION_STRIDE_STEREO * 0] = inPixelSource_r[x++];
+                out_data_l[DESTINATION_STRIDE_STEREO * 1] = inPixelSource_l[x];
+                out_data_r[DESTINATION_STRIDE_STEREO * 1] = inPixelSource_r[x++];
+                out_data_l[DESTINATION_STRIDE_STEREO * 2] = inPixelSource_l[x];
+                out_data_r[DESTINATION_STRIDE_STEREO * 2] = inPixelSource_r[x++];
             }
         }
     }
@@ -1148,88 +1271,6 @@ void logico_computer(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         out_data[h * 15 + 14] = (double) lComputer.memUsed[2];
         out_data_ts[h] = (double) lComputer.timestamp;
     }
-}
-
-/*******************************************************************************
- *
- *                           Image helpers (JPEG)
- *
- ******************************************************************************/
-
-int jpeg_filesize = 0;
-int jpeg_filepos = 0;
- 
-unsigned char pjpeg_need_bytes_callback(unsigned char* pBuf, unsigned char buf_size, unsigned char *pBytes_actually_read, void *pCallback_data)
-{
-    /*unsigned int n = min((unsigned int)(jpeg_filesize - jpeg_filepos), (unsigned int)buf_size);
-    if (n && (fread(pBuf, 1, n, jpegfile) != n)) {
-        return PJPG_STREAM_READ_ERROR;
-    }
-    *pBytes_actually_read = (unsigned char)(n);
-    jpeg_filepos += n;
-    return 0;*/
-}
- 
-void decodeJPEG(const char *inStream, uint32_t dataSize, unsigned char *outImage)
-{
-/*    pjpeg_image_info_t imageInfo;
-/*    jpeg_filesize = dataSize;
-/*    int status = pjpeg_decode_init(&imageInfo, pjpeg_need_bytes_callback, NULL);
-/*    /* const unsigned int row_pitch = imageInfo.m_width * imageInfo.m_comps; */
-/*    int mcu_x = 0;
-/*    int mcu_y = 0;
-/*
-/*    for ( ; ; ) {
-/*        status = pjpeg_decode_mcu();
-/*
-/*        /* Handle case when its done. */
-/*        if (status) {
-/*            if (status != PJPG_NO_MORE_BLOCKS) { return; }
-/*            break;
-/*        }
-/*        if (mcu_y >= imageInfo.m_MCUSPerCol) { return; }
-/*
-/*        /* Copy MCU's pixel blocks into the destination bitmap. */
-/*        for (int y = 0; y < imageInfo.m_MCUHeight; y += 8) {
-/*            const int by_limit = min(8, imageInfo.m_height - (mcu_y * imageInfo.m_MCUHeight + y));
-/*            for (int x = 0; x < imageInfo.m_MCUWidth; x += 8) {
-/*
-/*                unsigned int src_ofs = (x * 8U) + (y * 16U);
-/*                const unsigned char *pSrcR = imageInfo.m_pMCUBufR + src_ofs;
-/*                const unsigned char *pSrcG = imageInfo.m_pMCUBufG + src_ofs;
-/*                const unsigned char *pSrcB = imageInfo.m_pMCUBufB + src_ofs;
-/*
-/*                const int bx_limit = min(8, imageInfo.m_width - (mcu_x * imageInfo.m_MCUWidth + x));
-/*
-/*                if (imageInfo.m_scanType == PJPG_GRAYSCALE) {
-/*                    for (int by = 0; by < by_limit; by++) {
-/*                        for (int bx = 0; bx < bx_limit; bx++) {
-/*                            unsigned int color = ((*pSrcR++) << 16);   
-/*                            (*lcd).pixel(mcu_x*imageInfo.m_MCUWidth+x+bx,mcu_y*imageInfo.m_MCUHeight+y+by,color);
-/*                        }
-/*                        pSrcR += (8 - bx_limit);
-/*                    }
-/*                } else {
-/*                    for (int by = 0; by < by_limit; by++) {
-/*                        for (int bx = 0; bx < bx_limit; bx++) {
-/*                            unsigned int color = ((*pSrcR++) << 16) | ((*pSrcG++) << 8) | (*pSrcB++);
-/*                            (*lcd).pixel((130-imageInfo.m_width)/2+mcu_x*imageInfo.m_MCUWidth+x+bx,(130-imageInfo.m_height)/2+mcu_y*imageInfo.m_MCUHeight+y+by,color);
-/*                        }
-/*
-/*                        pSrcR += (8 - bx_limit);
-/*                        pSrcG += (8 - bx_limit);
-/*                        pSrcB += (8 - bx_limit);
-/*                    }
-/*                }
-/*            }
-/*        }
-/*
-/*        mcu_x++;
-/*        if (mcu_x == imageInfo.m_MCUSPerRow) {
-/*            mcu_x = 0;
-/*            mcu_y++;
-/*        }
-/*    }*/
 }
 
 

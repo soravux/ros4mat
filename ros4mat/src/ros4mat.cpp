@@ -1297,7 +1297,7 @@ int main(int argc, char **argv)
                                  * as the subscribe protocol).
                                  * Then, we send EVERY imgStruct in one shot, then the images having the 
                                  * same size. The left and right images are alternated (one left, one right, one left, ...)
-                                 * BUT, we send only ONE imgStruct per set of two images (since they have the same timestamp) */
+                                 * We send two imgStruct per set of two images */
                                 nbrImgSend = clients[i].subscribers[MSGID_WEBCAM_STEREO].second.size();
                                 int imgSizeBytes = ((msgStereoCamInternal*)clients[i].subscribers[MSGID_WEBCAM_STEREO].second.front())->sizeData;
                                 
@@ -1305,9 +1305,9 @@ int main(int argc, char **argv)
                                 
                                 lAnswerHeader.size = nbrImgSend;
                                 lAnswerHeader.info = (((msgStereoCamInternal*)clients[i].subscribers[MSGID_WEBCAM_STEREO].second.front())->width)/20;
-                                
+
                                 lAnswer = new char[sendSize];
-                                
+
                                 msgCam lCamData;
                                 msgStereoCamInternal* currentCamStruct = 0;
                                 for (unsigned int k = 0; k < lAnswerHeader.size; k++) {
@@ -1318,12 +1318,14 @@ int main(int argc, char **argv)
                                     lCamData.channels = currentCamStruct->channels;
                                     lCamData.sizeData = currentCamStruct->sizeData;
                                     lCamData.timestamp = currentCamStruct->timestamp;
-                                    memcpy(lAnswer + k*sizeof(msgCam), &lCamData, sizeof(msgCam));
-                                    
+                                    // Header copy
+                                    memcpy(lAnswer + (k+0)*sizeof(msgCam), &lCamData, sizeof(msgCam));
+                                    memcpy(lAnswer + (k+1)*sizeof(msgCam), &lCamData, sizeof(msgCam));
+
                                     // Left Image copy
-                                    memcpy(lAnswer + nbrImgSend*sizeof(msgCam) + k*imgSizeBytes*2, currentCamStruct->cptr_L, imgSizeBytes);
+                                    memcpy(lAnswer + nbrImgSend*sizeof(msgCam)*2 + k*imgSizeBytes*2, currentCamStruct->cptr_L, imgSizeBytes);
                                     // Right Image copy
-                                    memcpy(lAnswer + nbrImgSend*sizeof(msgCam) + k*imgSizeBytes*2 + imgSizeBytes, currentCamStruct->cptr_R, imgSizeBytes);
+                                    memcpy(lAnswer + nbrImgSend*sizeof(msgCam)*2 + k*imgSizeBytes*2 + imgSizeBytes, currentCamStruct->cptr_R, imgSizeBytes);
                                     
                                     // Buffer pruning
                                     delete[] currentCamStruct->cptr_L;
