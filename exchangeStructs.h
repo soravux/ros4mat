@@ -35,8 +35,13 @@
 
 enum compression_type {
     R4M_COMP_NONE,
-    R4M_COMP_JPEG,
     R4M_COMP_ZLIB
+};
+
+enum camera_compression {
+    R4M_CAM_RAWPIX,
+    R4M_CAM_JPEG,
+    R4M_CAM_PNG
 };
 
 /*******************************************************************************
@@ -49,6 +54,10 @@ enum compression_type {
  struct msgHeader{
     char type;                      /* Type du message (MSGID_*) */
     char info;                      /* Information supplementaire (vide) */
+    char error;                     /* 0 si aucune erreur, sinon code d'erreur */
+                                    /* Si une erreur se produit, aucune donnee n'est envoyee, mais un message d'erreur (string ASCII)
+                                    est inclus apres le header. Sa taille est donnee par uncompressSize et compressSize */
+    uint32_t clientId;              /* Permet d'indiquer que le client etait deja connecte sous un certain ID, 0 si 1ere connexion */
     uint32_t size;                  /* Nombre de structures du type 'type' envoyees */
     uint32_t uncompressSize;        /* Size (en octets) du RESTE du message non compresse */
     uint32_t compressSize;          /* Size (en octets) du RESTE du message qui est compresse */
@@ -60,7 +69,7 @@ enum compression_type {
  typedef struct msgConnect msgConnect;
  struct msgConnect{
     char protocolVersion;           /* Toujours 1 */
-    char compression;
+    char compression;               /* Activer ou non la compression (voir enum compression_type) */
 } PACKEDSTRUCT;
 
 #define MSGID_QUIT 0x02
@@ -70,14 +79,85 @@ enum compression_type {
 typedef struct msgSubscribe msgSubscribe;
 struct msgSubscribe{
     unsigned char typeCapteur;      /* Type de capteur voulu (MSGID_*) */
-    unsigned char paramSupp;        /* Parametres supplementaires : */
-                                    /* - Pour l'ADC : le canal (chaque bit active un canal) */
-                                    /* - ... */
-    unsigned char paramSupp2;       /* Parametre supplementaire 2 : ID de la camera */
+    char silentSubscribe;           /* Indique si on doit modifier la configuration ou non */
+    uint32_t bufferSize;            /* Taille du buffer circulaire utilise en nombre de samples (sensor-independent) */
+    uint32_t paramsSize;            /* Nombre d'octets de parametres supplementaires */
+} PACKEDSTRUCT;
+
+typedef struct paramsAdc paramsAdc;
+struct paramsAdc{
     unsigned short freqAcquisition; /* Frequence d'acquisition en Hz */
     unsigned short freqSend;        /* Frequence d'envoi en Hz */
-    uint32_t bufferSize;            /* Taille du buffer circulaire utilise */
+    char channels;                  /* Canaux actives; chaque bit active un canal */
 } PACKEDSTRUCT;
+
+typedef struct paramsImu paramsImu;
+struct paramsImu{
+    unsigned short freqAcquisition; /* Frequence d'acquisition en Hz */
+    unsigned short freqSend;        /* Frequence d'envoi en Hz */
+} PACKEDSTRUCT;
+
+typedef struct paramsGps paramsGps;
+struct paramsGps{
+    unsigned short freqAcquisition; /* Frequence d'acquisition en Hz */
+    unsigned short freqSend;        /* Frequence d'envoi en Hz */
+} PACKEDSTRUCT;
+
+typedef struct paramsCamera paramsCamera;
+struct paramsCamera{
+    unsigned short fps;             /* Nombre d'images par seconde */
+    unsigned char id;               /* Id de la camera (p. ex. 0 pour /dev/video0) */
+    unsigned char compression;      /* Compression de l'image (0 = pas de compression, 0<n<100 = JPEG) */
+    unsigned short width;           /* Largeur de l'image acquise en pixels */
+    unsigned short height;          /* Hauteur de l'image acquise en pixels */
+    unsigned char useROI;           /* Definit si on doit seulement envoyer une partie de l'image */
+    unsigned short roiTopLeft;      /* Coordonnees de la sous-image a envoyer */
+    unsigned short roiTopRight;
+    unsigned short roiBottomLeft;
+    unsigned short roiBottomRight;
+} PACKEDSTRUCT;
+
+typedef struct paramsStereoCam paramsStereoCam;
+struct paramsStereoCam{
+    unsigned short fps;             /* Nombre d'images par seconde */
+    unsigned char idLeft;           /* Id de la camera de GAUCHE (p. ex. 0 pour /dev/video0) */
+    unsigned char idRight;          /* Id de la camera de DROITE */
+    unsigned char compression;      /* Compression de l'image (0 = pas de compression, 0<n<100 = JPEG) */
+    unsigned short width;           /* Largeur de l'image acquise en pixels */
+    unsigned short height;          /* Hauteur de l'image acquise en pixels */
+    unsigned char useROI;           /* Definit si on doit seulement envoyer une partie de l'image */
+    unsigned short leftRoiTopLeft;  /* Coordonnees de la sous-image a envoyer pour la camera de GAUCHE */
+    unsigned short leftRoiTopRight;     
+    unsigned short leftRoiBottomLeft;
+    unsigned short leftRoiBottomRight;
+    unsigned short rightRoiTopLeft; /* Coordonnees de la sous-image a envoyer pour la camera de DROITE */
+    unsigned short rightRoiTopRight;     
+    unsigned short rightRoiBottomLeft;
+    unsigned short rightRoiBottomRight;
+} PACKEDSTRUCT;
+
+typedef struct paramsKinect paramsKinect;
+struct paramsKinect{
+    unsigned char id;               /* Id de la Kinect */
+    unsigned char sendRGB;          /* Acquisitionner ou non l'image RGB */
+    unsigned char sendDepth;        /* Acquisitionner ou non l'image de profondeur */
+    unsigned short fpsRGB;          /* Nombre d'images par seconde */
+    unsigned short fpsDepth;        /* Nombre d'images par seconde */
+    unsigned char compressionRGB;   /* Compression de l'image RGB (0 = pas de compression, 0<n<100 = JPEG) */
+    unsigned short widthRGB;        /* Largeur de l'image acquise en pixels */
+    unsigned short heightRGB;       /* Hauteur de l'image acquise en pixels */
+} PACKEDSTRUCT;
+
+typedef struct paramsHokuyo paramsHokuyo;
+struct paramsHokuyo{
+    unsigned short freqAcquisition; /* Frequence d'acquisition en Hz */
+} PACKEDSTRUCT;
+
+typedef struct paramsComputer paramsComputer;
+struct paramsComputer{
+    unsigned short freqAcquisition; /* Frequence d'acquisition en Hz */
+} PACKEDSTRUCT;
+
 
 #define MSGID_UNSUBSCRIBE 0x04
 typedef struct msgUnsubscribe msgUnsubscribe;
@@ -88,13 +168,12 @@ struct msgUnsubscribe{
 #define MSGID_SERIAL_CMD 0x05
 typedef struct msgSerialCmd msgSerialCmd;
 struct msgSerialCmd{
-    char port[100];
+    uint32_t portBufferLength;
     uint32_t speed;
     bool parity;
     unsigned char stopBits;
-    char data[1024];
-    short sendLength;
-    short readLength;
+    uint32_t sendLength;
+    uint32_t readLength;
     short readTimeoutSec;
     uint32_t readTimeoutMicro;
     bool closeAfterComm;
@@ -110,7 +189,11 @@ struct msgDigitalOut{
 } PACKEDSTRUCT;
 
 #define MSGID_CONNECT_ACK 0x10
-/* Aucun message de CONNECT_ACK necessaire */
+typedef struct msgConnectAck msgConnectAck;
+struct msgConnectAck{
+    char accepted;
+    uint32_t clientId;            /* Permet de conserver la connexion en cas de perte de reseau */
+} PACKEDSTRUCT;
 
 #define MSGID_ADC 0x20
 typedef struct msgAdc msgAdc;
@@ -165,7 +248,7 @@ struct msgGps{
  * de l'image. Elle contient aussi un sizeData, qui indique combien d'octets sont a recevoir
  * pour transmettre l'image (normalement width*height*channels).
  * Le paquet ressemble donc a :
- * | msgHeader | msgCam | data_raw ... ... ... |
+ * | msgHeader | msgCam | data_raw | msgCam | data_raw | ... ... ... |
  * sizeData contient le nombre d'octets de data_raw
  */
  typedef struct msgCam msgCam;
@@ -174,7 +257,7 @@ struct msgGps{
     uint32_t height;
     unsigned char channels;
     uint32_t sizeData;
-    uint8_t compressionType;
+    char compressionType;
     double timestamp;           /* Timestamp de l'acquisition de l'image */
 } PACKEDSTRUCT;
 
@@ -186,8 +269,7 @@ struct msgGps{
 typedef struct msgSerialAns msgSerialAns;
 struct msgSerialAns{
     char status;
-    uint32_t bufferLength;
-    char data[1024];
+    uint32_t dataLength;
 } PACKEDSTRUCT;
 
 #define MSGID_COMPUTER 0x26
@@ -218,5 +300,15 @@ struct msgHokuyo{
 
 #define MSGID_KINECT_DEPTH 0x28
 #define MSGID_KINECT 0x29           /* Represents [RGB + Depth] in Matlab and RGB only in agent buffer */
+/* Agregat de 2 structures msgCam. Les donnees envoyees ressemblent donc a :
+ * | msgHeader | msgKinect | dataRGB | dataDepth | msgKinect | dataRGB | dataKinect | ... ... ... |
+ * Si une des deux images n'est pas presente, alors sa taille est simplement mise a 0 dans le msgCam correspondant
+ * Le receveur peut assumer que les deux images decrites dans la structure msgKinect sont synchronisees.
+ */
+typedef struct msgKinect msgKinect;
+struct msgKinect{
+    msgCam infoRGB;
+    msgCam infoDepth;
+} PACKEDSTRUCT;
 
 #define MSGID_WEBCAM_STEREO 0x2A

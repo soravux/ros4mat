@@ -60,6 +60,7 @@
 
 #include "../../exchangeStructs.h"
 #include "../../thirdparty/easyzlib.h"
+#include "jpge.h"       // Compression JPG. On ne peut pas utiliser celle de image_transport pour certaines raisons
 
 #define SOCKET_ERROR    -1
 
@@ -118,8 +119,7 @@ struct matlabClient
     std::map<unsigned int, uint32_t>                                            buffersInfo;    // Allocated size
 };
 
-std::map<int, matlabClient> clients;    // int = Client Socket File Descriptor
-
+std::map<uint32_t, matlabClient> clients;    // uint = unique client id
 
 void dataAdcReceived(const ros4mat::M_ADC::ConstPtr &msg)
 {
@@ -589,9 +589,10 @@ void dataKinectRGBReceived(const sensor_msgs::Image::ConstPtr &msg)
 }
 
 
-int subscribeTo(msgSubscribe *info, ros::NodeHandle nodeRos, matlabClient &in_client)
+int subscribeTo(char typeCapteur, uint32_t bufferSize, char* info, bool subOnly, ros::NodeHandle nodeRos, matlabClient &in_client)
 {
     /* TODO: ADD Buffer toward publishers*/
+    /* C'est quoi ce TODO la?? */
     ros::Subscriber         sub;
     bool                    subOnly = false;
 
@@ -604,34 +605,26 @@ int subscribeTo(msgSubscribe *info, ros::NodeHandle nodeRos, matlabClient &in_cl
     ros4mat::S_StereoCam    lParamsSetStereoCam;
     ros4mat::S_Computer     lParamsSetComputer;
 
-    ROS_INFO(
-        "Reception d'une demande d'inscription pour le capteur %02X.\nFrequence d'acquisition : %i\nFrequence de polling : %i\nTaille du buffer circulaire : %i",
-        info->typeCapteur,
-        info->freqAcquisition,
-        info->freqSend,
-        info->bufferSize
-    );
-
-    if(info->freqAcquisition == 0)
-    {
+    if(subOnly){
         /* Special case:
                 Parameters don't change (no service call), we only subscribe */
         ROS_INFO("Inscription seulement");
-        if(info->bufferSize == 0)
+        if(bufferSize == 0)
         {
             int                                     bufferNewSize = 1;
-            std::map<int, matlabClient>::iterator   lClientIt;
+            std::map<uint32_t, matlabClient>::iterator   lClientIt;
             bool                                    otherClientConnected = false;
 
             for(lClientIt = clients.begin(); lClientIt != clients.end(); lClientIt++)
             {
-                if((*lClientIt).second.subscribers.count(info->typeCapteur) > 0)
-                    bufferNewSize = (*lClientIt).second.buffersInfo[info->typeCapteur];
+                if((*lClientIt).second.subscribers.count(typeCapteur) > 0)
+                    bufferNewSize = (*lClientIt).second.buffersInfo[typeCapteur];
                 otherClientConnected = true;
             }
 
             if(!otherClientConnected)
             {
+                // TODO : CHECK if we cannot connect anyway
                 ROS_WARN(
                     "Aucun client actuellement connecte au capteur %02X, inscription seulement ignoree",
                     info->typeCapteur
@@ -645,9 +638,17 @@ int subscribeTo(msgSubscribe *info, ros::NodeHandle nodeRos, matlabClient &in_cl
                 bufferNewSize
             );
         }
-
-        subOnly = true;
     }
+
+
+    ROS_INFO(
+        "Reception d'une demande d'inscription pour le capteur %02X.\nFrequence d'acquisition : %i\nFrequence de polling : %i\nTaille du buffer circulaire : %i",
+        info->typeCapteur,
+        info->freqAcquisition,
+        info->freqSend,
+        info->bufferSize
+    );
+
 
     switch(info->typeCapteur)
     {
@@ -814,6 +815,8 @@ int subscribeTo(msgSubscribe *info, ros::NodeHandle nodeRos, matlabClient &in_cl
             }
         }
 
+        image_transport::ImageTransport it(nodeRos);
+        image_transport::Subscriber sub = it.subscribe("camera/image", 1, imageCallback);
         sub = nodeRos.subscribe("/image_raw", 2 * SOCKET_SEND_TIMEOUT_SEC * 30, dataCamReceived);
         break;
 
@@ -1063,7 +1066,7 @@ int unsubscribeAll(int in_client)
 }
 
 
-int sendSerialCmd(msgSerialCmd *info, matlabClient &in_client, char *answer, char &answerSize)
+int sendSerialCmd(msgSerialCmd *info, char* port, char* data, matlabClient &in_client, char *answer, char &answerSize)
 {
     ros4mat::S_Serial   lParams;
     ROS_INFO(
@@ -1076,8 +1079,8 @@ int sendSerialCmd(msgSerialCmd *info, matlabClient &in_client, char *answer, cha
         info->readTimeoutSec,
         info->readTimeoutMicro
     );
-    lParams.request.port = std::string(info->port);
-    ROS_INFO("Serial port %s", info->port);
+    lParams.request.port = std::string(port);
+    ROS_INFO("Serial port %s", port);
     lParams.request.speed = info->speed;
     lParams.request.parity = info->parity;
     lParams.request.stopBits = info->stopBits;
@@ -1086,17 +1089,18 @@ int sendSerialCmd(msgSerialCmd *info, matlabClient &in_client, char *answer, cha
     lParams.request.readTimeoutSec = info->readTimeoutSec;
     lParams.request.readTimeoutMicro = info->readTimeoutMicro;
     lParams.request.closeAfterComm = info->closeAfterComm;
-    for(unsigned int i = 0; i < info->sendLength; i++) lParams.request.sendBuffer.push_back(info->data[i]);
-    answer = new char[lParams.response.receiveBufferLength];
-    for(unsigned int i = 0; i < lParams.response.receiveBufferLength; i++)
-        answer[i] = lParams.response.receiveBuffer[i];
-    answerSize = lParams.response.receiveBufferLength;
+    for(unsigned int i = 0; i < info->sendLength; i++)                  // TODO : OPTIMIZE
+        lParams.request.sendBuffer.push_back(info->data[i]);
     ROS_INFO("Serial OK, sending data");
     if(!ros::service::call("/D_Serial/serialCommand", lParams))
     {
         ROS_ERROR("L'envoi de la commande serie a renvoye une erreur");
         return MSGID_SERIAL_ANS_NO_OPEN;
     }
+    answer = new char[lParams.response.receiveBufferLength];
+    for(unsigned int i = 0; i < lParams.response.receiveBufferLength; i++)  // TODO : OPTIMIZE
+        answer[i] = lParams.response.receiveBuffer[i];
+    answerSize = lParams.response.receiveBufferLength;
 
     return MSGID_SERIAL_ANS_OK;
 }
@@ -1190,7 +1194,6 @@ int sendDataToClient(int socketFd, msgHeader *inHeader, const char *bufferOut, i
 }
 
 std::map<unsigned int, unsigned int>    ProtocolMsgSize;
-
 
 
 int main(int argc, char **argv)
@@ -1338,106 +1341,102 @@ int main(int argc, char **argv)
 
                     // Header reception
                     msg = new char[sizeof(msgHeader)];
-                    while(recvBytes < sizeof(msgHeader))
+                    recvReturn = recv(i, msg, sizeof(msgHeader), MSG_WAITALL);
+                    if(recvReturn == -1)
                     {
-                        /* Node data reception */
-                        recvReturn = recv(i, msg + recvBytes, sizeof(msgHeader) - recvBytes, 0);
-                        if(recvReturn == -1)
-                        {
-                            // Timeout
-                            ROS_ERROR(
-                                "Timeout on header reception (Receibed %db / %db expected)",
-                                recvBytes,
-                                sizeof(msgHeader)
-                            );
-                            break;
-                        }
-                        else if(recvReturn == 0)
-                        {
-                            ROS_ERROR("Connection closed by the client on header reception");
-                            unsubscribeAll(i);
-
-                            // Node unsubscribtion
-                            clients.erase(i);
-                            close(i);
-                            FD_CLR(i, &active_fd_set);
-                            delete[] msg;
-                            break;
-                        }
-
-                        recvBytes += recvReturn;
+                        // Timeout
+                        ROS_ERROR(
+                            "Timeout on header reception (Received %db / %db expected)",
+                            recvBytes,
+                            sizeof(msgHeader)
+                        );
+                        continue;
                     }
-
-                    if(recvReturn <= 0) continue;
-
-                    std::map<unsigned int, std::pair<ros::Subscriber, std::queue<void *> > >::iterator  lIt;
-
-                    msgUnsubscribe                                                                      lUM;
-                    if(recvBytes < sizeof(msgHeader))
+                    else if(recvReturn == 0)
+                    {
+                        ROS_ERROR("Connection closed by the client on header reception");
+                       
+                        // On ne peut plus faire ca
+                        //unsubscribeAll(i);
+                        // Node unsubscribtion
+                        //clients.erase(i);
+                        
+                        close(i);
+                        FD_CLR(i, &active_fd_set);
+                        delete[] msg;
+                        continue;
+                    }
+                    else if(recvReturn < sizeof(msgHeader))
                     {
                         if(n == 0)
                         {
                             ROS_INFO("Closed connexion");
-                            unsubscribeAll(i);
-                            clients.erase(i);
+                            // On ne peut plus faire ca
+                            //unsubscribeAll(i);
+                            //clients.erase(i);
                             close(i);
                             FD_CLR(i, &active_fd_set);
                         }
 
                         // If it's a corrupted message or a new connection
                         delete[] msg;
-                        break;
+                        continue;
                     }
 
-                    msgHeader   lHeader;
+                    std::map<unsigned int, std::pair<ros::Subscriber, std::queue<void *> > >::iterator  lIt;
+                    msgUnsubscribe                                                                      lUM;
+                    
+                    msgHeader lHeader;
                     memcpy(&lHeader, msg, sizeof(msgHeader));
                     delete[] msg;
+
+
                     if(ProtocolMsgSize.count(lHeader.type) == 0)
                     {
                         ROS_WARN("Received an unknown message type: %X. Ignoring...", lHeader.type);
                         continue;
                     }
 
-                    msg = new char[ProtocolMsgSize[lHeader.type] * lHeader.size + 1];
-
-                    // Header parsing and data handling
-                    recvBytes = 0;
-                    while(recvBytes < ProtocolMsgSize[lHeader.type] * lHeader.size)
-                    {
-                        /* Message reception */
-                        recvReturn = recv(i, msg + recvBytes, ProtocolMsgSize[lHeader.type] - recvBytes, 0);
-                        if(recvReturn == -1)
-                        {
-                            // Timeout
-                            ROS_ERROR(
-                                "Timeout on message reception (header correctly received) : %db received, %db expected!",
-                                recvBytes,
-                                ProtocolMsgSize[lHeader.type] * lHeader.size
-                            );
-                            delete[] msg;
-                            break;
-                        }
-                        else if(recvReturn == 0)
-                        {
-                            ROS_ERROR("Connection closed by client");
-                            unsubscribeAll(i);
-
-                            // Node unsubscribtion
-                            clients.erase(i);
-                            close(i);
-                            FD_CLR(i, &active_fd_set);
-                            delete[] msg;
-                            break;
-                        }
-
-                        recvBytes += recvReturn;
+                    if(lHeader.type != MSGID_CONNECT && clients.count(lHeader.clientId) == 0){
+                        ROS_WARN("Received an invalid ID from client, and the client is not requesting for connection. Ignoring...");
+                        continue;
                     }
 
-                    if(recvReturn <= 0) continue;
+
+                    // Message reception
+                    msg = new char[lHeader.uncompressSize];
+                    recvReturn = recv(i, msg, lHeader.uncompressSize, MSG_WAITALL);
+                    if(recvReturn == -1)
+                    {
+                        // Timeout
+                        ROS_ERROR(
+                            "Timeout on message reception (header correctly received) : %db received, %db expected!",
+                            recvReturn,
+                            lHeader.uncompressSize
+                        );
+                        delete[] msg;
+                        continue;
+                    }
+                    else if(recvReturn == 0)
+                    {
+                        ROS_ERROR("Connection closed by client");
+                        unsubscribeAll(lHeader.clientId);
+
+                        // Node unsubscribtion
+                        clients.erase(lHeader.clientId);
+                        close(i);
+                        FD_CLR(i, &active_fd_set);
+                        delete[] msg;
+                        continue;
+                    }
+
+
+                    // Header parsing and data handling
 
                     n = recvBytes;
 
                     msgHeader       lAnswerHeader;
+                    msgConnectAck   lConnectAck;
                     msgConnect      lConnect;
                     msgSubscribe    lSubscribe;
                     msgComputer     lComputer;
@@ -1446,30 +1445,57 @@ int main(int argc, char **argv)
                     msgSerialCmd    lSerialCmd;
                     msgSerialAns    lSerialAns;
                     char            *lRetour;
-                    char            lRetourSize = 0;
+                    uint32_t            lRetourSize = 0;
+                    char            *bufferSubscribe, *bufferData, *bufferPort;
                     switch(lHeader.type)
                     {
                     case MSGID_CONNECT:
                         ROS_DEBUG("Received Connect");
                         memcpy(&lConnect, msg, sizeof(msgConnect));
-                        lAnswer = new char[sizeof(msgHeader)];
+                        lAnswer = new char[sizeof(msgHeader) + sizeof(msgConnectAck)];
                         lAnswerHeader.type = MSGID_CONNECT_ACK;
                         lAnswerHeader.info = 0x00;
+                        lAnswerHeader.error = 0;
                         lAnswerHeader.size = 1;
                         lAnswerHeader.packetTimestamp = 0.0;
+
+                        lConnectAck.accept = 1;
+
+                        if(lHeader.clientId == 0){
+                            // Le client demande un ID (premiere connexion)
+                            if(clients.empty()){
+                                lConnectAck.clientId = 1;
+                            }
+                            else{
+                                std::map<uint32_t,matlabClient>::reverse_iterator rend;
+                                rend = clients.rbegin();
+                                lConnectAck.clientId = rend->first;
+                            }                           
+                            clients[lConnectAck.clientId] = matlabClient();
+                        }
+                        else{
+                            if(clients.count(lHeader.clientId) == 0){
+                                ROS_WARN("Client said he already has an ID, but this ID do not exist in memory!");
+                                clients[lConnectAck.clientId] = matlabClient();
+                                // Envoyer message d'erreur au client?
+                            }
+                            lConnectAck.clientId = lHeader.clientId;    // On fait "confiance" au client
+                        }
+
                         memcpy(lAnswer, &lAnswerHeader, sizeof(msgHeader));
-                        send(i, lAnswer, sizeof(msgHeader), 0);
-                        clients[i] = matlabClient();
-                        clients[i].compression = lConnect.compression;
+                        memcpy(lAnswer+sizeof(msgHeader), &lConnectAck, sizeof(msgConnectAck));
+                        send(i, lAnswer, sizeof(msgHeader)+sizeof(msgConnectAck), 0);
+                            
+                        clients[lConnectAck.clientId].compression = lConnect.compression;
                         delete lAnswer;
                         break;
 
                     case MSGID_QUIT:
                         ROS_DEBUG("Received Quit");
-                        unsubscribeAll(i);
+                        unsubscribeAll(lHeader.clientId);
 
                         // Node unsubscribtion
-                        clients.erase(i);
+                        clients.erase(lHeader.clientId);
                         close(i);
                         FD_CLR(i, &active_fd_set);
                         break;
@@ -1477,33 +1503,61 @@ int main(int argc, char **argv)
                     case MSGID_SUBSCRIBE:
                         memcpy(&lSubscribe, msg, sizeof(msgSubscribe));
                         ROS_DEBUG("Received Subscribe for %X", lSubscribe.typeCapteur);
-                        subscribeTo(&lSubscribe, nodeRos, clients[i]);
+
+                        bufferSubscribe = new char[lSubscribe.paramsSize];
+                        memcpy(bufferSubscribe, msg+sizeof(msgSubscribe), lSubscribe.paramsSize);
+                        subscribeTo(lSubscribe.typeCapteur, bufferSubscribe, lSubscribe.silentSubscribe == 1, nodeRos, clients[lHeader.clientId]);
+                        delete[] bufferSubscribe;
                         break;
 
                     case MSGID_UNSUBSCRIBE:
                         ROS_DEBUG("Received Unsubscribe");
                         memcpy(&lUnsubscribe, msg, sizeof(msgUnsubscribe));
-                        unsubscribeTo(&lUnsubscribe, clients[i]);
+                        unsubscribeTo(&lUnsubscribe, clients[lHeader.clientId]);
                         break;
 
                     case MSGID_SERIAL_CMD:
                         ROS_DEBUG("Received serial command");
                         memcpy(&lSerialCmd, msg, sizeof(msgSerialCmd));
+
+                        bufferPort = new char[lSerialCmd.portBufferLength];
+                        memcpy(bufferPort, msg + sizeof(msgSerialCmd), lSerialCmd.portBufferLength);
+
+                        if(lSerialCmd.sendLength > 0){
+                            bufferData = new char[lSerialCmd.sendLength];
+                            memcpy(bufferData, msg + sizeof(msgSerialCmd) + lSerialCmd.portBufferLength, lSerialCmd.sendLength);
+                        }
+                        if(lSerialCmd.readLength > 0){
+                            lRetour = new char[lSerialCmd.readLength];
+                        }
+
+                        lSerialAns.status = sendSerialCmd(&lSerialCmd, bufferData, lSerialCmd.sendLength, 
+                                                            lRetour, lRetourSize, clients[lHeader.clientId]);
+
                         lAnswerHeader.type = MSGID_SERIAL_ANS;
                         lAnswerHeader.info = 0x00;
+                        lAnswerHeader.error = 0;
                         lAnswerHeader.size = 1;
                         lAnswerHeader.packetTimestamp = 0.0;
-                        lAnswerHeader.compressSize = sizeof(msgSerialAns);
-                        lAnswerHeader.uncompressSize = sizeof(msgSerialAns);
+                        lAnswerHeader.compressSize = sizeof(msgSerialAns) + lRetourSize;
+                        lAnswerHeader.uncompressSize = sizeof(msgSerialAns) + lRetourSize;
+                        // TODO : Ajouter possibilite de compression
                         lAnswerHeader.compressionType = MSGID_HEADER_NOCOMPRESSION;
-                        lSerialAns.status = sendSerialCmd(&lSerialCmd, clients[i], lRetour, lRetourSize);
-                        lSerialAns.bufferLength = lRetourSize;
+                        lSerialAns.dataLength = lRetourSize;
 
-                        memcpy(lSerialAns.data, lRetour, lRetourSize);
-                        lAnswer = new char[sizeof(msgHeader) + sizeof(msgSerialAns)];
+
+                        lAnswer = new char[sizeof(msgHeader) + sizeof(msgSerialAns) + lRetourSize];
                         memcpy(lAnswer, &lAnswerHeader, sizeof(msgHeader));
                         memcpy(lAnswer + sizeof(msgHeader), &lSerialAns, sizeof(msgSerialAns));
-                        send(i, lAnswer, sizeof(msgHeader) + sizeof(msgSerialAns), 0);
+                        memcpy(lAnswer + sizeof(msgHeader) + sizeof(msgSerialAns), lRetour, lRetourSize);
+
+                        send(i, lAnswer, sizeof(msgHeader) + sizeof(msgSerialAns) + lRetourSize, 0);
+
+                        delete[] bufferPort;
+                        if(lSerialCmd.sendLength > 0)
+                            delete[] bufferData;
+                        if(lSerialCmd.readLength > 0)
+                            delete[] lRetour;
                         break;
 
                     case MSGID_DOUT_CTRL:
@@ -1764,7 +1818,7 @@ int main(int argc, char **argv)
                     case MSGID_BATTERY:
                         ROS_DEBUG("Received Battery");
                         lAnswerHeader.type = lHeader.type;
-                        lAnswerHeader.size = clients[i].subscribers[lHeader.type].second.size();
+                        lAnswerHeader.size = clients[lHeader.clientId].subscribers[lHeader.type].second.size();
                         lAnswerHeader.info = 0x00;
                         lAnswerHeader.packetTimestamp = ros::Time::now().toSec();
 
@@ -1773,11 +1827,11 @@ int main(int argc, char **argv)
                         {
                             memcpy(
                                 lAnswer + k * sizeof(msgBattery),
-                                clients[i].subscribers[lHeader.type].second.front(),
+                                clients[lHeader.clientId].subscribers[lHeader.type].second.front(),
                                 sizeof(msgBattery)
                             );
-                            delete (msgBattery *) clients[i].subscribers[lHeader.type].second.front();
-                            clients[i].subscribers[lHeader.type].second.pop();
+                            delete (msgBattery *) clients[lHeader.clientId].subscribers[lHeader.type].second.front();
+                            clients[lHeader.clientId].subscribers[lHeader.type].second.pop();
                         }
 
                         sendDataToClient(
@@ -1785,7 +1839,7 @@ int main(int argc, char **argv)
                             &lAnswerHeader,
                             lAnswer,
                             lAnswerHeader.size * sizeof(msgBattery),
-                            clients[i].compression
+                            clients[lHeader.clientId].compression
                         );
                         delete lAnswer;
                         break;
@@ -1793,7 +1847,7 @@ int main(int argc, char **argv)
                     case MSGID_GPS:
                         ROS_DEBUG("Received GPS");
                         lAnswerHeader.type = lHeader.type;
-                        lAnswerHeader.size = clients[i].subscribers[lHeader.type].second.size();
+                        lAnswerHeader.size = clients[lHeader.clientId].subscribers[lHeader.type].second.size();
                         lAnswerHeader.info = 0x00;
                         lAnswerHeader.packetTimestamp = ros::Time::now().toSec();
 
@@ -1802,11 +1856,11 @@ int main(int argc, char **argv)
                         {
                             memcpy(
                                 lAnswer + k * sizeof(msgGps),
-                                clients[i].subscribers[lHeader.type].second.front(),
+                                clients[lHeader.clientId].subscribers[lHeader.type].second.front(),
                                 sizeof(msgGps)
                             );
-                            delete (msgGps *) clients[i].subscribers[lHeader.type].second.front();
-                            clients[i].subscribers[lHeader.type].second.pop();
+                            delete (msgGps *) clients[lHeader.clientId].subscribers[lHeader.type].second.front();
+                            clients[lHeader.clientId].subscribers[lHeader.type].second.pop();
                         }
 
                         sendDataToClient(
@@ -1814,7 +1868,7 @@ int main(int argc, char **argv)
                             &lAnswerHeader,
                             lAnswer,
                             lAnswerHeader.size * sizeof(msgGps),
-                            clients[i].compression
+                            clients[lHeader.clientId].compression
                         );
                         delete lAnswer;
                         break;
@@ -1822,7 +1876,7 @@ int main(int argc, char **argv)
                     case MSGID_COMPUTER:
                         ROS_DEBUG("Received Computer");
                         lAnswerHeader.type = lHeader.type;
-                        lAnswerHeader.size = clients[i].subscribers[lHeader.type].second.size();
+                        lAnswerHeader.size = clients[lHeader.clientId].subscribers[lHeader.type].second.size();
                         lAnswerHeader.info = 0x00;
                         lAnswerHeader.packetTimestamp = ros::Time::now().toSec();
 
@@ -1831,11 +1885,11 @@ int main(int argc, char **argv)
                         {
                             memcpy(
                                 lAnswer + k * sizeof(msgComputer),
-                                clients[i].subscribers[lHeader.type].second.front(),
+                                clients[lHeader.clientId].subscribers[lHeader.type].second.front(),
                                 sizeof(msgComputer)
                             );
-                            delete (msgComputer *) clients[i].subscribers[lHeader.type].second.front();
-                            clients[i].subscribers[lHeader.type].second.pop();
+                            delete (msgComputer *) clients[lHeader.clientId].subscribers[lHeader.type].second.front();
+                            clients[lHeader.clientId].subscribers[lHeader.type].second.pop();
                         }
 
                         sendDataToClient(
@@ -1843,7 +1897,7 @@ int main(int argc, char **argv)
                             &lAnswerHeader,
                             lAnswer,
                             lAnswerHeader.size * sizeof(msgComputer),
-                            clients[i].compression
+                            clients[lHeader.clientId].compression
                         );
 
                         delete lAnswer;
@@ -1852,7 +1906,7 @@ int main(int argc, char **argv)
                     case MSGID_ADC:
                         ROS_DEBUG("Received ADC");
                         lAnswerHeader.type = lHeader.type;
-                        lAnswerHeader.size = clients[i].subscribers[lHeader.type].second.size();
+                        lAnswerHeader.size = clients[lHeader.clientId].subscribers[lHeader.type].second.size();
                         lAnswerHeader.info = 0x00;
                         lAnswerHeader.packetTimestamp = ros::Time::now().toSec();
 
@@ -1861,11 +1915,11 @@ int main(int argc, char **argv)
                         {
                             memcpy(
                                 lAnswer + k * sizeof(msgAdc),
-                                clients[i].subscribers[lHeader.type].second.front(),
+                                clients[lHeader.clientId].subscribers[lHeader.type].second.front(),
                                 sizeof(msgAdc)
                             );
-                            delete (msgAdc *) clients[i].subscribers[lHeader.type].second.front();
-                            clients[i].subscribers[lHeader.type].second.pop();
+                            delete (msgAdc *) clients[lHeader.clientId].subscribers[lHeader.type].second.front();
+                            clients[lHeader.clientId].subscribers[lHeader.type].second.pop();
                         }
 
                         sendDataToClient(
@@ -1873,7 +1927,7 @@ int main(int argc, char **argv)
                             &lAnswerHeader,
                             lAnswer,
                             lAnswerHeader.size * sizeof(msgAdc),
-                            clients[i].compression
+                            clients[lHeader.clientId].compression
                         );
                         delete lAnswer;
                         break;
@@ -1881,7 +1935,7 @@ int main(int argc, char **argv)
                     case MSGID_IMU:
                         ROS_DEBUG("Received IMU");
                         lAnswerHeader.type = lHeader.type;
-                        lAnswerHeader.size = clients[i].subscribers[lHeader.type].second.size();
+                        lAnswerHeader.size = clients[lHeader.clientId].subscribers[lHeader.type].second.size();
                         lAnswerHeader.info = 0x00;
                         lAnswerHeader.packetTimestamp = ros::Time::now().toSec();
 
@@ -1890,11 +1944,11 @@ int main(int argc, char **argv)
                         {
                             memcpy(
                                 lAnswer + k * sizeof(msgImu),
-                                clients[i].subscribers[lHeader.type].second.front(),
+                                clients[lHeader.clientId].subscribers[lHeader.type].second.front(),
                                 sizeof(msgImu)
                             );
-                            delete (msgImu *) clients[i].subscribers[lHeader.type].second.front();
-                            clients[i].subscribers[lHeader.type].second.pop();
+                            delete (msgImu *) clients[lHeader.clientId].subscribers[lHeader.type].second.front();
+                            clients[lHeader.clientId].subscribers[lHeader.type].second.pop();
                         }
 
                         sendDataToClient(
@@ -1902,7 +1956,7 @@ int main(int argc, char **argv)
                             &lAnswerHeader,
                             lAnswer,
                             lAnswerHeader.size * sizeof(msgImu),
-                            clients[i].compression
+                            clients[lHeader.clientId].compression
                         );
                         delete lAnswer;
                         break;
