@@ -30,21 +30,6 @@
 #endif
 
 /*******************************************************************************
- *                                   Enums
- ******************************************************************************/
-
-enum compression_type {
-    R4M_COMP_NONE,
-    R4M_COMP_ZLIB
-};
-
-enum camera_compression {
-    R4M_CAM_RAWPIX,
-    R4M_CAM_JPEG,
-    R4M_CAM_PNG
-};
-
-/*******************************************************************************
  *                              Packet Headers
  ******************************************************************************/
 
@@ -53,7 +38,6 @@ enum camera_compression {
  typedef struct msgHeader msgHeader;
  struct msgHeader{
     char type;                      /* Type du message (MSGID_*) */
-    char info;                      /* Information supplementaire (vide) */
     char error;                     /* 0 si aucune erreur, sinon code d'erreur */
                                     /* Si une erreur se produit, aucune donnee n'est envoyee, mais un message d'erreur (string ASCII)
                                     est inclus apres le header. Sa taille est donnee par uncompressSize et compressSize */
@@ -191,7 +175,6 @@ struct msgDigitalOut{
 #define MSGID_CONNECT_ACK 0x10
 typedef struct msgConnectAck msgConnectAck;
 struct msgConnectAck{
-    char accepted;
     uint32_t clientId;            /* Permet de conserver la connexion en cas de perte de reseau */
 } PACKEDSTRUCT;
 

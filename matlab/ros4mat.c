@@ -92,11 +92,12 @@
 static int                    initialized = 0;
 static struct sockaddr_in     *sock_in = NULL;
 static int                    *main_socket = NULL;
+static int                    *client_id = 0;
 
 
 /*******************************************************************************
  *
- *                        Initialization and cleanup
+ *              Initialization, cleanup and socket helper functions
  *
  ******************************************************************************/
 
@@ -115,14 +116,14 @@ int init_winsock()
     ws_error = WSAStartup(version, &wsaData);
 
     /* check for error */
-    if(ws_error != 0)
+    if (ws_error != 0)
     {
         /* error occured */
         return FALSE;
     }
 
     /* check for correct version */
-    if(LOBYTE(wsaData.wVersion) != 2 || HIBYTE(wsaData.wVersion) != 0)
+    if (LOBYTE(wsaData.wVersion) != 2 || HIBYTE(wsaData.wVersion) != 0)
     {
         /* incorrect WinSock version */
         WSACleanup();
@@ -133,33 +134,69 @@ int init_winsock()
 }
 #endif /* #if defined USE_WINSOCK */
 
-/* */
 
-void logico_close()
+void send_message(const char type, uint32_t qty, char *payload, uint32_t payload_size)
 {
     char            *msg;
     msgHeader       lHeader;
     unsigned int    i = 0;
 
-    if(initialized == 0) mexErrMsgTxt("No connection established.");
+    if (initialized == 0) {
+        mexErrMsgTxt("No connection established.");
+    }
 
-    msg = (char *) mxCalloc(1, sizeof(msgHeader));
-    lHeader.type = MSGID_QUIT;
-    lHeader.info = 0x00;
-    lHeader.size = 0;
+    msg = (char *) mxCalloc(1, sizeof(msgHeader) + payload_size);
+    lHeader.type = type;
+    lHeader.size = qty;
+    lHeader.error = 0;
     lHeader.packetTimestamp = 0.0;
 
-    memcpy(msg, &lHeader, sizeof(msgHeader));
+    memcpy(
+        msg,
+        &lHeader,
+        sizeof(msgHeader)
+    );
 
-    send(*main_socket, msg, sizeof(msgHeader), 0);
+    if (payload_size > 0) {
+        memcpy(
+            msg + sizeof(msgHeader),
+            &payload,
+            sizeof(payload_size)
+        );
+    }
+
+    send(
+        *main_socket,
+        msg,
+        sizeof(msgHeader) + payload_size,
+        0
+    );
+
+    mxFree(msg);
+}
+
+/* Receives an uninitialized pointer */
+int receive_message(void **msg)
+{
+    *msg = mxMalloc(sizeof(msgHeader));
+    recv(*main_socket, *msg, sizeof(msgHeader), 0);
+
+    /* TODO: Header Error handling */
+}
+
+
+void logico_close(void)
+{
+    send_message(MSGID_QUIT, 0, 0, 0);
 
     close(*main_socket);
 
-#if defined USE_WINSOCK
-    WSACleanup();
-#endif
+    #if defined USE_WINSOCK
+        WSACleanup();
+    #endif
     mxFree(sock_in);
     mxFree(main_socket);
+
     initialized = 0;
 }
 
@@ -167,7 +204,7 @@ void logico_close()
 void cleanup()
 {
     /* To be done on the parent MATLAB onClose software */
-    if(initialized != 0)
+    if (initialized != 0)
     {
         logico_close();
     }
@@ -192,17 +229,12 @@ void logico_start(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     int                 sockaddr_in_length = sizeof(struct sockaddr_in);
     char                compressionFlag = MSGID_HEADER_NOCOMPRESSION;
 
-    if(initialized != 0)
-    {
+    if (initialized != 0) {
         mexWarnMsgTxt("Connection already established.");
         return;
     }
 
     msg = (char *) mxCalloc(1, sizeof(msgHeader) + sizeof(msgConnect));
-    lHeader.type = MSGID_CONNECT;
-    lHeader.info = 0x00;
-    lHeader.size = 1;
-    lHeader.packetTimestamp = 0.0;
     lConnectMessage.protocolVersion = 1;
 
     lConnectMessage.compression =
@@ -211,9 +243,9 @@ void logico_start(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         &&    (uint16_t) mxGetScalar(prhs[1]) == 1
         ) ? MSGID_HEADER_ZLIBCOMPRESSION : MSGID_HEADER_NOCOMPRESSION;
 
-#if defined USE_WINSOCK
-    if(init_winsock() != 0) mexErrMsgTxt("Winsock initialisation error.");
-#endif
+    #if defined USE_WINSOCK
+        if (init_winsock() != 0) mexErrMsgTxt("Winsock initialisation error.");
+    #endif
     main_socket = (int *) mxCalloc(1, sizeof(int));
     sock_in = (struct sockaddr_in *) mxCalloc(1, sizeof(struct sockaddr_in));
     mexMakeMemoryPersistent(sock_in);
@@ -236,7 +268,7 @@ void logico_start(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     /* Gestion du endpoint remote (Robot) */
     sock_in->sin_family = AF_INET;
     sock_in->sin_port = htons(REMOTE_SERVER_PORT);
-    if(nrhs < 1)
+    if (nrhs < 1)
     {
         mexWarnMsgTxt("Defaut host used (127.0.0.1).\n");
         sock_in->sin_addr.s_addr = inet_addr("127.0.0.1");
@@ -244,38 +276,43 @@ void logico_start(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     else
     {
         char    ip[16] = { 0 };
-        if(mxGetString(prhs[0], ip, sizeof(ip) - 1)) mexErrMsgTxt("IP extraction impossible");
+        if (mxGetString(prhs[0], ip, sizeof(ip) - 1)) mexErrMsgTxt("IP extraction impossible");
         sock_in->sin_addr.s_addr = inet_addr(ip);
     }
 
-    if(bind(*main_socket, (struct sockaddr *) &cliAddr, sizeof(struct sockaddr_in)) == SOCKET_ERROR)
+    if (bind(*main_socket, (struct sockaddr *) &cliAddr, sizeof(struct sockaddr_in)) == SOCKET_ERROR)
     {
-#if defined USE_WINSOCK
-        mexPrintf("Winsock error: %i\n", WSAGetLastError());
-#endif
+        #if defined USE_WINSOCK
+            mexPrintf("Winsock error: %i\n", WSAGetLastError());
+        #endif
         mexErrMsgTxt("Error binding TCP port.");
     }
 
     h = connect(*main_socket, (struct sockaddr *) sock_in, sizeof(struct sockaddr_in));
-    if(h < 0)
+    if (h < 0)
     {
-#if defined USE_WINSOCK
-        mexPrintf("Winsock error: %i\n", WSAGetLastError());
-#endif
+        #if defined USE_WINSOCK
+            mexPrintf("Winsock error: %i\n", WSAGetLastError());
+        #endif
         mexErrMsgTxt("Error connecting to ros4mat.");
     }
 
-    memcpy(msg, &lHeader, sizeof(msgHeader));
-    memcpy(msg + sizeof(msgHeader), &lConnectMessage, sizeof(msgConnect));
-
-    send(*main_socket, msg, sizeof(msgHeader) + sizeof(msgConnect), 0);
+    send_message(
+        MSGID_CONNECT,
+        1,
+        (char*)&lConnectMessage,
+        sizeof(msgConnect)
+    );
 
     /* Verification du message recu */
-    recv(*main_socket, msg, sizeof(msgHeader), 0);
+    receive_message((void**)&msg);
+    
     memcpy(&lHeader, msg, sizeof(msgHeader));
-    if(lHeader.type != MSGID_CONNECT_ACK) mexErrMsgTxt("Incompatible ros4mat answer.");
+    if (lHeader.type != MSGID_CONNECT_ACK) mexErrMsgTxt("Incompatible ros4mat answer.");
 
-    initialized++;
+    mexMakeMemoryPersistent(client_id);
+
+    ++initialized;
 }
 
 struct types_capteurs_textuel
@@ -295,6 +332,19 @@ tctext[] =
     { "kinect", MSGID_KINECT },
     { "kinect_ir", MSGID_KINECT_DEPTH },
     { "ordinateur", MSGID_COMPUTER }
+};
+
+typedef union subscriptionParameters subscriptionParameters;
+union subscriptionParameters
+{
+    paramsAdc adc;
+    paramsImu imu;
+    paramsGps gps;
+    paramsCamera cam;
+    paramsStereoCam stereocam;
+    paramsKinect kinect;
+    paramsHokuyo hokuyo;
+    paramsComputer computer;
 };
 
 
@@ -393,92 +443,111 @@ void decodeJPEG(char *inStream, uint32_t dataSize, uint32_t *outImage)
  *
  ******************************************************************************/
 
-/* */
 
 void logico_subscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
-    char            *msg;
-    msgHeader       lHeader;
-    msgSubscribe    lSubscribeMessage;
-    unsigned int    h;
-    char            StrBuffer[65];
+    char                    *msg;
+    msgHeader               lHeader;
+    msgSubscribe            lSubscribeMessage;
+    subscriptionParameters  lParameters;
+    unsigned int            lParamSize = 0;
+    unsigned int            h;
+    char                    StrBuffer[65];
 
     /* Initialize struct variables to zero. */
     memset(&lSubscribeMessage, 0, sizeof(msgSubscribe));
 
-    if(nrhs < 1) mexErrMsgTxt("Please specify a valid node.");
-    if(nrhs > 1)
-    {
-        lSubscribeMessage.freqAcquisition = (uint16_t) mxGetScalar(prhs[1]);
-        lSubscribeMessage.freqSend = (uint16_t) ((float) lSubscribeMessage.freqAcquisition / 4.0 + 10.0);
-        lSubscribeMessage.bufferSize = lSubscribeMessage.freqAcquisition;
-    }
+    /* Step 1: Find which type of sensor we'ere subscribing to */
+    if (initialized == 0) { mexErrMsgTxt("No connection established."); }
+    if (!mxIsChar(prhs[0])) { mexErrMsgTxt("'subscribe' must be followed with a node name."); }
 
-    if(nrhs > 6) mexWarnMsgTxt("Cannot understand request: Too much arguments.");
-    if(nrhs > 4) lSubscribeMessage.freqSend = (uint16_t) mxGetScalar(prhs[4]);
-    if(nrhs > 3) lSubscribeMessage.bufferSize = (uint32_t) mxGetScalar(prhs[3]);
-    if(nrhs > 2)
-    {
-        if(!mxIsChar(prhs[2]))
-        {
-            lSubscribeMessage.paramSupp = (signed char) mxGetScalar(prhs[2]);
-        }
-        else
-        {
-            /* Gestion de la camera */
-            if(mxGetString(prhs[2], StrBuffer, sizeof(StrBuffer) - 1)) mexErrMsgTxt("Error: Could not interpretate.");
-
-            lSubscribeMessage.paramSupp = (int) atoi(StrBuffer) / 20;
-
-            if(lSubscribeMessage.paramSupp < 8 || lSubscribeMessage.paramSupp > 80)
-            {
-                mexWarnMsgTxt("Unknown resolution. Reverting to default resolution (320x240).");
-                lSubscribeMessage.paramSupp = 16;
-            }
-
-            if(nrhs > 5) lSubscribeMessage.paramSupp2 = (unsigned char) mxGetScalar(prhs[5]);
-        }
-    }
-
-    if(lSubscribeMessage.freqSend > lSubscribeMessage.freqAcquisition)
-    {
-        lSubscribeMessage.freqSend = lSubscribeMessage.freqAcquisition;
-    }
-
-    if(initialized == 0) mexErrMsgTxt("No connection established.");
-    if(!mxIsChar(prhs[0])) mexErrMsgTxt("'subscribe' must be followed with a node name.");
-
-    if(mxGetString(prhs[0], StrBuffer, sizeof(StrBuffer) - 1))
+    if (mxGetString(prhs[0], StrBuffer, sizeof(StrBuffer) - 1)) {
         mexWarnMsgTxt("Cannot understand request: String conversion failed.");
+    }
 
-    for(h = 0; h < sizeof(tctext) / sizeof(tctext[0]); h++)
-    {
-        if(!strcmp(tctext[h].nom, StrBuffer))
+    if (nrhs < 1) { mexErrMsgTxt("Please specify a valid node."); }
+    for(h = 0; h < sizeof(tctext) / sizeof(tctext[0]); h++) {
+        if (!strcmp(tctext[h].nom, StrBuffer))
         {
             lSubscribeMessage.typeCapteur = tctext[h].typeCapteur;
-            if(h == 4 && (lSubscribeMessage.paramSupp < 8 || lSubscribeMessage.paramSupp > 80))
+            if (h == 4 && (lSubscribeMessage.paramSupp < 8 || lSubscribeMessage.paramSupp > 80))
             {
                 mexWarnMsgTxt("Using default resolution (320x240).");
-                lSubscribeMessage.paramSupp = 16;
+                lParameters.paramSupp = 16;
             }
 
             h = 0;
             break;
         }
     }
+    if (h != 0) { mexErrMsgTxt("Unsupported node."); }
 
-    if(h != 0) mexErrMsgTxt("Unsupported node.");
+    /* Step 2: Register parameters */
+    if (nrhs < 2) { mexErrMsgTxt("Please specify an acquisition frequency."); }
+    lSubscribeMessage.bufferSize = (uint16_t) mxGetScalar(prhs[1]);
+    switch (lSubscribeMessage.typeCapteur) {
+        case MSGID_ADC:
+        case MSGID_GPS:
+        case MSGID_IMU:
+            lParameters.freqSend = (uint16_t) ((float) mxGetScalar(prhs[1]) / 4.0 + 10.0);
+        case MSGID_HOKUYO:
+        case MSGID_COMPUTER:
+            lParameters.adc.freqAcquisition = (uint16_t) mxGetScalar(prhs[1]);
+            lParamSize = sizeof(paramsAdc);
+            break;
+        case MSGID_BATTERY:
+        case MSGID_WEBCAM:
+        case MSGID_WEBCAM_STEREO:
+        
+        case MSGID_KINECT:
+        case MSGID_KINECT_DEPTH:
+            break;
+        default:
+            break;
+    }
 
-    msg = (char *) mxCalloc(1, sizeof(msgHeader) + sizeof(msgSubscribe));
-    lHeader.type = MSGID_SUBSCRIBE;
-    lHeader.info = 0x00;
-    lHeader.size = 1;
-    lHeader.packetTimestamp = 0.0;
 
-    memcpy(msg, &lHeader, sizeof(msgHeader));
-    memcpy(msg + sizeof(msgHeader), &lSubscribeMessage, sizeof(msgSubscribe));
+        lParameters.freqAcquisition = (uint16_t) mxGetScalar(prhs[1]);
+        lParameters.freqSend = (uint16_t) ((float) (uint16_t) mxGetScalar(prhs[1]) / 4.0 + 10.0);
+        lSubscribeMessage.bufferSize = (uint16_t) mxGetScalar(prhs[1]);
 
-    send(*main_socket, msg, sizeof(msgHeader) + sizeof(msgSubscribe), 0);
+
+    if (nrhs > 6) { mexWarnMsgTxt("Cannot understand request: Too much arguments."); }
+    if (nrhs > 4) { lSubscribeMessage.freqSend = (uint16_t) mxGetScalar(prhs[4]); }
+    if (nrhs > 3) { lSubscribeMessage.bufferSize = (uint32_t) mxGetScalar(prhs[3]); }
+    if (nrhs > 2)
+    {
+        if (!mxIsChar(prhs[2]))
+        {
+            lSubscribeMessage.paramSupp = (signed char) mxGetScalar(prhs[2]);
+        }
+        else
+        {
+            /* Gestion de la camera */
+            if (mxGetString(prhs[2], StrBuffer, sizeof(StrBuffer) - 1)) mexErrMsgTxt("Error: Could not interpretate.");
+
+            lSubscribeMessage.paramSupp = (int) atoi(StrBuffer) / 20;
+
+            if (lSubscribeMessage.paramSupp < 8 || lSubscribeMessage.paramSupp > 80)
+            {
+                mexWarnMsgTxt("Unknown resolution. Reverting to default resolution (320x240).");
+                lSubscribeMessage.paramSupp = 16;
+            }
+
+            if (nrhs > 5) lSubscribeMessage.paramSupp2 = (unsigned char) mxGetScalar(prhs[5]);
+        }
+    }
+
+    if (lSubscribeMessage.freqSend > lSubscribeMessage.freqAcquisition) {
+        lSubscribeMessage.freqSend = lSubscribeMessage.freqAcquisition;
+    }
+
+    send_message(
+        MSGID_SUBSCRIBE,
+        1,
+        &lSubscribeMessage,
+        sizeof(msgSubscribe)
+    );
 }
 
 /* */
@@ -490,16 +559,16 @@ void logico_unsubscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs
     char            StrBuffer[65];
     unsigned int    h = 0;
 
-    if(nrhs > 2) mexWarnMsgTxt("Cannot understand request: Too much arguments.");
-    if(initialized == 0) mexErrMsgTxt("No connection established.");
-    if(!mxIsChar(prhs[0])) mexErrMsgTxt("'unsubscribe' must be followed with a node name.");
+    if (nrhs > 2) mexWarnMsgTxt("Cannot understand request: Too much arguments.");
+    if (initialized == 0) mexErrMsgTxt("No connection established.");
+    if (!mxIsChar(prhs[0])) mexErrMsgTxt("'unsubscribe' must be followed with a node name.");
 
-    if(mxGetString(prhs[0], StrBuffer, sizeof(StrBuffer) - 1))
+    if (mxGetString(prhs[0], StrBuffer, sizeof(StrBuffer) - 1))
         mexWarnMsgTxt("Cannot understand request: String conversion failed.");
 
     for(h = 0; h < sizeof(tctext) / sizeof(tctext[0]); h++)
     {
-        if(!strcmp(tctext[h].nom, StrBuffer))
+        if (!strcmp(tctext[h].nom, StrBuffer))
         {
             lUnsubscribeMessage.typeCapteur = tctext[h].typeCapteur;
             h = 0;
@@ -507,11 +576,10 @@ void logico_unsubscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs
         }
     }
 
-    if(h != 0) mexErrMsgTxt("Unsupported node.");
+    if (h != 0) mexErrMsgTxt("Unsupported node.");
 
     msg = (char *) mxCalloc(1, sizeof(msgHeader) + sizeof(msgUnsubscribe));
     lHeader.type = MSGID_UNSUBSCRIBE;
-    lHeader.info = 0x00;
     lHeader.size = 1;
     lHeader.packetTimestamp = 0.0;
 
@@ -537,7 +605,7 @@ msgHeader logico_send_data_request(char inType, char **msg, unsigned int inStruc
 
     /* Flusher le buffer de reception */
     ioctl(*main_socket, FIONREAD, &recvBytes);
-    if(recvBytes > 0)
+    if (recvBytes > 0)
     {
         msgEmpty = (char *) mxMalloc(recvBytes);
         recv(*main_socket, msgEmpty, recvBytes, 0);
@@ -549,7 +617,6 @@ msgHeader logico_send_data_request(char inType, char **msg, unsigned int inStruc
     /* Envoyer un paquet vide demandant les donnees d'un capteur */
     *msg = (char *) mxCalloc(1, sizeof(msgHeader));
     lHeader.type = inType;
-    lHeader.info = 0x00;
     lHeader.size = 0;
     lHeader.packetTimestamp = 0.0;
 
@@ -563,11 +630,11 @@ msgHeader logico_send_data_request(char inType, char **msg, unsigned int inStruc
         timeout.tv_sec = 30;
         timeout.tv_usec = 0;
         i = select(*main_socket + 1, &read_fds, NULL, NULL, &timeout);
-        if(i < 0)
+        if (i < 0)
         {
             mexErrMsgTxt("Network error.");
         }
-        else if(i == 0)
+        else if (i == 0)
         {
             mexErrMsgTxt("Network timeout error.");
         }
@@ -577,12 +644,12 @@ msgHeader logico_send_data_request(char inType, char **msg, unsigned int inStruc
     }
 
     memcpy(&lHeader, *msg, sizeof(msgHeader));
-    if(lHeader.type != inType)
+    if (lHeader.type != inType)
     {
         mexErrMsgTxt("Incompatible ros4mat answer.");
     }
 
-    if(lHeader.size == 0) return lHeader;
+    if (lHeader.size == 0) return lHeader;
 
     /* On recoit le buffer des donnees, champ compressSize du header */
     expectedRecvSize = lHeader.compressSize;
@@ -593,11 +660,11 @@ msgHeader logico_send_data_request(char inType, char **msg, unsigned int inStruc
         timeout.tv_sec = 30;
         timeout.tv_usec = 0;
         i = select(*main_socket + 1, &read_fds, NULL, NULL, &timeout);
-        if(i < 0)
+        if (i < 0)
         {
             mexErrMsgTxt("Network error.");
         }
-        else if(i == 0)
+        else if (i == 0)
         {
             mexErrMsgTxt("Network timeout error.");
         }
@@ -609,26 +676,25 @@ msgHeader logico_send_data_request(char inType, char **msg, unsigned int inStruc
     memcpy(*msg, &lHeader, sizeof(msgHeader));
 
     /* Decompression */
-    if(lHeader.compressionType == MSGID_HEADER_NOCOMPRESSION)
+    if (lHeader.compressionType == MSGID_HEADER_NOCOMPRESSION)
     {
         memcpy(*msg + sizeof(msgHeader), msgCompress, expectedRecvSize);
     }
-    else if(lHeader.compressionType == MSGID_HEADER_ZLIBCOMPRESSION)
+    else if (lHeader.compressionType == MSGID_HEADER_ZLIBCOMPRESSION)
     {
         uncompressSize = lHeader.uncompressSize;
-        i = ezuncompress
-            (
-                *msg + sizeof(msgHeader),
-                &uncompressSize,
-                (unsigned char *) msgCompress,
-                lHeader.compressSize
-            );
-        if(i < 0)
+        i = ezuncompress(
+            *msg + sizeof(msgHeader),
+            &uncompressSize,
+            (unsigned char *) msgCompress,
+            lHeader.compressSize
+        );
+        if (i < 0)
         {
             mexErrMsgTxt("Corruption error while uncompressing data!");
         }
 
-        if((int) uncompressSize != lHeader.uncompressSize)
+        if ((int) uncompressSize != lHeader.uncompressSize)
         {
             mexErrMsgTxt("Uncompressing data size mismatch.");
         }
@@ -650,7 +716,7 @@ void logico_battery(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
     double          *out_data, *out_data_ts;
 
-    if(initialized == 0) mexErrMsgTxt("No connection established.");
+    if (initialized == 0) mexErrMsgTxt("No connection established.");
 
     lHeader = logico_send_data_request(MSGID_BATTERY, &msg, sizeof(msgBattery));
 
@@ -673,23 +739,23 @@ void logico_battery(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
                 (double) lBatteryMessage.cellsVoltage[4] +
                 (double) lBatteryMessage.cellsVoltage[5]
             ) * 0.3 - 6.41;
-        if(lPercentBattery > 1)
+        if (lPercentBattery > 1)
         {
             lPercentBattery = 1;
         }
-        else if(lPercentBattery < 0.05)
+        else if (lPercentBattery < 0.05)
         {
             lPercentBattery = 0.05;
         }
 
         for(i = 0; i < 6; i++)
         {
-            if(lBatteryMessage.cellsVoltage[i] < 3.0)
+            if (lBatteryMessage.cellsVoltage[i] < 3.0)
             {
                 lBatteryMessage.state |= 0x100;
             }
 
-            if(lBatteryMessage.cellsVoltage[i] < 3.6)
+            if (lBatteryMessage.cellsVoltage[i] < 3.6)
             {
                 lBatteryMessage.state |= 0x200;
             }
@@ -719,7 +785,7 @@ void logico_imu(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     double          *out_data, *out_data_ts;
     char            *msg = NULL;
 
-    if(initialized == 0) mexErrMsgTxt("No connection established.");
+    if (initialized == 0) mexErrMsgTxt("No connection established.");
 
     lHeader = logico_send_data_request(MSGID_IMU, &msg, sizeof(msgImu));
 
@@ -756,7 +822,7 @@ void logico_adc(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     unsigned int    h;
     double          *out_data, *out_data_ts;
 
-    if(initialized == 0) mexErrMsgTxt("No connection established.");
+    if (initialized == 0) mexErrMsgTxt("No connection established.");
 
     lHeader = logico_send_data_request(MSGID_ADC, &msg, sizeof(msgAdc));
 
@@ -794,23 +860,22 @@ void logico_serial(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     char            *out_data;
     char            StrBuffer[101];
 
-    if(initialized == 0) mexErrMsgTxt("No connection established.");
+    if (initialized == 0) mexErrMsgTxt("No connection established.");
 
     msg = (char *) mxCalloc(1, sizeof(msgHeader) + sizeof(msgSerialCmd));
     lHeader.type = MSGID_SERIAL_CMD;
-    lHeader.info = 0x00;
     lHeader.size = 1;
     lHeader.packetTimestamp = 0.0;
 
     memcpy(msg, &lHeader, sizeof(msgHeader));
 
-    if(mxGetString(prhs[0], StrBuffer, sizeof(StrBuffer) - 1))
+    if (mxGetString(prhs[0], StrBuffer, sizeof(StrBuffer) - 1))
         mexErrMsgTxt("Could not understand port name. It must be a string with less than 100 characters.");
 
-    if((short) mxGetScalar(prhs[5]) > sizeof(lSerie.data))
+    if ((short) mxGetScalar(prhs[5]) > sizeof(lSerie.data))
         mexErrMsgTxt("Send buffer size must be lower than 1024 bytes.");
 
-    if((short) mxGetScalar(prhs[6]) > sizeof(lSerieAns.data))
+    if ((short) mxGetScalar(prhs[6]) > sizeof(lSerieAns.data))
         mexErrMsgTxt("Receive buffer size must be lower than 1024 bytes.");
 
     strcpy(lSerie.port, StrBuffer);
@@ -834,7 +899,7 @@ void logico_serial(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
     recv(*main_socket, msg, sizeof(msgHeader), MSG_PEEK);
     memcpy(&lHeader, msg, sizeof(msgHeader));
-    if(lHeader.type != MSGID_SERIAL_ANS) mexErrMsgTxt("Reponse incompatible du robot.");
+    if (lHeader.type != MSGID_SERIAL_ANS) mexErrMsgTxt("Reponse incompatible du robot.");
 
     msg = (char *) mxCalloc(1, sizeof(msgHeader) + lHeader.size * sizeof(msgSerialAns));
 
@@ -856,7 +921,6 @@ void logico_dout(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     int             outsend;
 
     lHeader.type = MSGID_DOUT_CTRL;
-    lHeader.info = 0x00;
     lHeader.size = 1;
     lHeader.packetTimestamp = 0.0;
 
@@ -864,7 +928,7 @@ void logico_dout(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
     memcpy(msg, &lHeader, sizeof(msgHeader));
 
-    if(nrhs < 4)
+    if (nrhs < 4)
     {
         mexErrMsgTxt("Insufficient parameter count (4 needed)");
     }
@@ -887,7 +951,7 @@ void logico_gps(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     unsigned int    h;
     double            *out_data, *out_data_ts;
 
-    if(initialized == 0) mexErrMsgTxt("No connection established.");
+    if (initialized == 0) mexErrMsgTxt("No connection established.");
 
     lHeader = logico_send_data_request(MSGID_GPS, &msg, sizeof(msgGps));
 
@@ -928,7 +992,7 @@ void logico_camera(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     unsigned int    sizeImg = 0;
     unsigned int    cam_size[4] = { 0, 0, 3, 0 };
 
-    if(initialized == 0) mexErrMsgTxt("No connection established.");
+    if (initialized == 0) mexErrMsgTxt("No connection established.");
 
     lHeader = logico_send_data_request(MSGID_WEBCAM, &msg, sizeof(msgCam));
 
@@ -1002,7 +1066,7 @@ void logico_camera_stereo(int nlhs, mxArray *plhs[], int nrhs, const mxArray *pr
     unsigned int    sizeImg = 0;
     unsigned int    cam_size[4] = { 0, 0, 3, 0 };
 
-    if(initialized == 0) mexErrMsgTxt("No connection established.");
+    if (initialized == 0) mexErrMsgTxt("No connection established.");
 
     lHeader = logico_send_data_request(MSGID_WEBCAM_STEREO, &msg, sizeof(msgCam));
 
@@ -1087,7 +1151,7 @@ void logico_kinect(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     /* TODO: Why not use lCam.channels? */
     unsigned int    cam_size[4] = { 0, 0, 4, 0 };
 
-    if(initialized == 0) mexErrMsgTxt("No connection established.");
+    if (initialized == 0) mexErrMsgTxt("No connection established.");
 
     lHeader = logico_send_data_request(MSGID_KINECT, &msg, sizeof(msgCam));
 
@@ -1148,7 +1212,7 @@ void logico_kinect_ir(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]
     unsigned int    sizeImg = 0;
     unsigned int    cam_size[4] = { 0, 0, 1, 0 };
 
-    if(initialized == 0) mexErrMsgTxt("No connection established.");
+    if (initialized == 0) mexErrMsgTxt("No connection established.");
 
     lHeader = logico_send_data_request(MSGID_KINECT_DEPTH, &msg, sizeof(msgCam));
 
@@ -1196,7 +1260,7 @@ void logico_hokuyo(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     unsigned char   *out_data;
     double          *out_data_ts, *out_data_infos;
 
-    if(initialized == 0) mexErrMsgTxt("No connection established.");
+    if (initialized == 0) mexErrMsgTxt("No connection established.");
 
     lHeader = logico_send_data_request(MSGID_HOKUYO, &msg, sizeof(msgHokuyo));
     memcpy(&lHokuyo, msg + sizeof(msgHeader), sizeof(msgHokuyo));
@@ -1246,7 +1310,7 @@ void logico_computer(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     unsigned int    h;
     double          *out_data, *out_data_ts;
 
-    if(initialized == 0) mexErrMsgTxt("No connection established.");
+    if (initialized == 0) mexErrMsgTxt("No connection established.");
 
     lHeader = logico_send_data_request(MSGID_COMPUTER, &msg, sizeof(msgComputer));
 
@@ -1318,7 +1382,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     static char ErrBuffer[512];
     int         h;
 
-    if(nrhs < 1)
+    if (nrhs < 1)
     {
         strcpy(ErrBuffer, "Missing command string. Expecting one of:");
         for(h = 0; h < sizeof(CmdTable) / sizeof(CmdTable[0]); h++)
@@ -1330,14 +1394,14 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         mexErrMsgTxt(ErrBuffer);
     }
 
-    if(!mxIsChar(prhs[0])) mexErrMsgTxt("The first argument must be a string.");
+    if (!mxIsChar(prhs[0])) mexErrMsgTxt("The first argument must be a string.");
 
-    if(mxGetString(prhs[0], StrBuffer, sizeof(StrBuffer) - 1))
+    if (mxGetString(prhs[0], StrBuffer, sizeof(StrBuffer) - 1))
         mexWarnMsgTxt("Cannot understand request: String conversion failed.");
 
     for(h = 0; h < sizeof(CmdTable) / sizeof(CmdTable[0]); h++)
     {
-        if(!strcmp(CmdTable[h].pCmd, StrBuffer))
+        if (!strcmp(CmdTable[h].pCmd, StrBuffer))
         {
             CmdTable[h].pFunction(nlhs, plhs, nrhs - 1, prhs + 1);
             return;
