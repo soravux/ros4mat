@@ -465,16 +465,11 @@ void logico_subscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]
         mexWarnMsgTxt("Cannot understand request: String conversion failed.");
     }
 
-    if (nrhs < 1) { mexErrMsgTxt("Please specify a valid node."); }
+    if (nrhs < 1) { mexErrMsgTxt("Please specify a valid sensor."); }
     for(h = 0; h < sizeof(tctext) / sizeof(tctext[0]); h++) {
         if (!strcmp(tctext[h].nom, StrBuffer))
         {
             lSubscribeMessage.typeCapteur = tctext[h].typeCapteur;
-            if (h == 4 && (lSubscribeMessage.paramSupp < 8 || lSubscribeMessage.paramSupp > 80))
-            {
-                mexWarnMsgTxt("Using default resolution (320x240).");
-                lParameters.paramSupp = 16;
-            }
 
             h = 0;
             break;
@@ -484,69 +479,96 @@ void logico_subscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]
 
     /* Step 2: Register parameters */
     if (nrhs < 2) { mexErrMsgTxt("Please specify an acquisition frequency."); }
-    lSubscribeMessage.bufferSize = (uint16_t) mxGetScalar(prhs[1]);
+    if (nrhs > 3) {
+        /* Buffer size specified */
+        lSubscribeMessage.bufferSize = (uint32_t) mxGetScalar(prhs[3]);
+    } else {
+        /* Use the acquisition frequency the buffer size (buffer 1 second) */
+        lSubscribeMessage.bufferSize = (uint16_t) mxGetScalar(prhs[1]);
+    }
+    /* if (nrhs > 6) { mexWarnMsgTxt("Cannot understand request: Too much arguments."); } */
+    /* Parse parameters for each sensor */
     switch (lSubscribeMessage.typeCapteur) {
         case MSGID_ADC:
+            lParameters.channels = (signed char) mxGetScalar(prhs[2]);
+            if (!lParamSize) { lParamSize = sizeof(paramsAdc); }
         case MSGID_GPS:
         case MSGID_IMU:
-            lParameters.freqSend = (uint16_t) ((float) mxGetScalar(prhs[1]) / 4.0 + 10.0);
+            /* These messages have freqSend added */
+            if (nrhs > 4) {
+                lSubscribeMessage.freqSend = (uint16_t) mxGetScalar(prhs[4]);
+                if (lParameters.freqSend > (uint16_t) mxGetScalar(prhs[1])) {
+                lParameters.freqSend = (uint16_t) mxGetScalar(prhs[1]);
+            }
+            } else {
+                /* Put default freqSend value based of freqAcquisition */
+                lParameters.freqSend = (uint16_t) ((float) mxGetScalar(prhs[1]) / 4.0 + 10.0);
+            }
+            if (!lParamSize) { lParamSize = sizeof(paramsImu); }
         case MSGID_HOKUYO:
         case MSGID_COMPUTER:
             lParameters.adc.freqAcquisition = (uint16_t) mxGetScalar(prhs[1]);
-            lParamSize = sizeof(paramsAdc);
+            if (!lParamSize) { lParamSize = sizeof(paramsHokuyo); }
             break;
-        case MSGID_BATTERY:
-        case MSGID_WEBCAM:
+
         case MSGID_WEBCAM_STEREO:
-        
+            if (!lParamSize) { lParamSize = sizeof(paramsStereoCam); }
+            if (nrhs > 5) {
+                lParameters.idLeft = (unsigned char) mxGetScalar(prhs[5]);
+            }
+            if (nrhs > 6) {
+                lParameters.idRight = (unsigned char) mxGetScalar(prhs[6]);
+            }
+            /* I'm sorry! :( */
+            goto parse_resolution;
+        case MSGID_WEBCAM:
+            if (!lParamSize) { lParamSize = sizeof(paramsCamera); }
         case MSGID_KINECT:
-        case MSGID_KINECT_DEPTH:
-            break;
-        default:
-            break;
-    }
+            if (!lParamSize) { lParamSize = sizeof(paramsKinect); }
 
-
-        lParameters.freqAcquisition = (uint16_t) mxGetScalar(prhs[1]);
-        lParameters.freqSend = (uint16_t) ((float) (uint16_t) mxGetScalar(prhs[1]) / 4.0 + 10.0);
-        lSubscribeMessage.bufferSize = (uint16_t) mxGetScalar(prhs[1]);
-
-
-    if (nrhs > 6) { mexWarnMsgTxt("Cannot understand request: Too much arguments."); }
-    if (nrhs > 4) { lSubscribeMessage.freqSend = (uint16_t) mxGetScalar(prhs[4]); }
-    if (nrhs > 3) { lSubscribeMessage.bufferSize = (uint32_t) mxGetScalar(prhs[3]); }
-    if (nrhs > 2)
-    {
-        if (!mxIsChar(prhs[2]))
-        {
-            lSubscribeMessage.paramSupp = (signed char) mxGetScalar(prhs[2]);
-        }
-        else
-        {
-            /* Gestion de la camera */
-            if (mxGetString(prhs[2], StrBuffer, sizeof(StrBuffer) - 1)) mexErrMsgTxt("Error: Could not interpretate.");
-
-            lSubscribeMessage.paramSupp = (int) atoi(StrBuffer) / 20;
-
-            if (lSubscribeMessage.paramSupp < 8 || lSubscribeMessage.paramSupp > 80)
-            {
-                mexWarnMsgTxt("Unknown resolution. Reverting to default resolution (320x240).");
-                lSubscribeMessage.paramSupp = 16;
+            /* Camera ID */
+            if (nrhs > 5) {
+                lParameters.id = (unsigned char) mxGetScalar(prhs[5]);
             }
 
-            if (nrhs > 5) lSubscribeMessage.paramSupp2 = (unsigned char) mxGetScalar(prhs[5]);
-        }
-    }
+        parse_resolution:
+            /* Parse resolution */
+            if (mxGetString(prhs[2], StrBuffer, sizeof(StrBuffer) - 1)) {
+                mexErrMsgTxt("Error: Could not interpretate resolution.");
+            }
+            lParameters.width = (int) atoi(StrBuffer) / 20;
+            if (lParameters.width < 8 || lParameters.width > 80) {
+                mexWarnMsgTxt("Unknown resolution. Reverting to default resolution (320x240).");
+                lParameters.width = 16;
+            }
+            lParameters.width *= 20;
+            lParameters.height = lParameters.width * 3 / 4;
 
-    if (lSubscribeMessage.freqSend > lSubscribeMessage.freqAcquisition) {
-        lSubscribeMessage.freqSend = lSubscribeMessage.freqAcquisition;
-    }
+            break;
 
+        default:
+            mexErrMsgTxt("Unsupported node: Parsing error.");
+            break;
+    }
+    /* Step 3: Build a message composed of [ msgSubscribe |  parameters ] */
+    msg = mxMalloc( sizeof(msgSubscribe) + lParamSize);
+    memcpy(
+        msg,
+        &lSubscribeMessage,
+        sizeof(msgSubscribe)
+    );
+    memcpy(
+        msg + sizeof(msgSubscribe),
+        &lParameters,
+        lParamSize
+    );
+
+    /* Step 4: Send the message */
     send_message(
         MSGID_SUBSCRIBE,
         1,
-        &lSubscribeMessage,
-        sizeof(msgSubscribe)
+        &msg,
+        sizeof(msgSubscribe) + lParamSize
     );
 }
 
