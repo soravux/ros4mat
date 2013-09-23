@@ -678,7 +678,7 @@ msgHeader logico_send_data_request(char inType, char **msg, unsigned int inStruc
         return lHeader;
     }
 
-    /* On recoit le buffer des donnees, champ compressSize du header */
+    /* Data receiving loop */
     expectedRecvSize = lHeader.compressSize;
     msgCompress = (char *) mxCalloc(1, expectedRecvSize);
     recvBytes = 0;
@@ -696,6 +696,8 @@ msgHeader logico_send_data_request(char inType, char **msg, unsigned int inStruc
         recvBytes += recv(*main_socket, msgCompress + recvBytes, expectedRecvSize - recvBytes, 0);
     }
 
+    /* Rebuild a new message with the data annexed to the header */
+    mxFree(msg);
     *msg = (char *) mxCalloc(1, sizeof(msgHeader) + lHeader.uncompressSize);
     memcpy(*msg, &lHeader, sizeof(msgHeader));
 
@@ -879,16 +881,9 @@ void logico_dout(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     msgDigitalOut   lDout;
     int             outsend;
 
-    lHeader.type = MSGID_DOUT_CTRL;
-    lHeader.size = 1;
-    lHeader.packetTimestamp = 0.0;
+    msg = (char *) mxCalloc(1, sizeof(msgDigitalOut));
 
-    msg = (char *) mxCalloc(1, sizeof(msgHeader) + sizeof(msgDigitalOut));
-
-    memcpy(msg, &lHeader, sizeof(msgHeader));
-
-    if (nrhs < 4)
-    {
+    if (nrhs < 4) {
         mexErrMsgTxt("Insufficient parameter count (4 needed)");
     }
 
@@ -897,8 +892,13 @@ void logico_dout(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     lDout.pinD2 = (mxGetScalar(prhs[2]) == 0) ? 0 : 1;
     lDout.pinD3 = (mxGetScalar(prhs[3]) == 0) ? 0 : 1;
 
-    memcpy(msg + sizeof(msgHeader), &lDout, sizeof(msgDigitalOut));
-    outsend = send(*main_socket, msg, sizeof(msgHeader) + sizeof(msgDigitalOut), 0);
+    memcpy(msg, &lDout, sizeof(msgDigitalOut));
+    send_message(
+        MSGID_DOUT_CTRL,
+        1,
+        msg,
+        sizeof(msgDigitalOut)
+    );
 }
 
 /* */
