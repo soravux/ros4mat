@@ -178,8 +178,37 @@ void send_message(const char type, uint32_t qty, char *payload, uint32_t payload
 /* Receives an uninitialized pointer */
 int receive_message(void **msg)
 {
+    unsigned int    recvBytes = 0;
+    fd_set          read_fds;
     *msg = mxMalloc(sizeof(msgHeader));
-    recv(*main_socket, *msg, sizeof(msgHeader), 0);
+
+    /* Flusher le buffer de reception */
+    ioctl(*main_socket, FIONREAD, &recvBytes);
+    if (recvBytes > 0)
+    {
+        msgEmpty = (char *) mxMalloc(recvBytes);
+        recv(*main_socket, msgEmpty, recvBytes, 0);
+        mxFree(msgEmpty);
+    }
+
+    recvBytes = 0;
+
+    FD_ZERO(&read_fds);
+    FD_SET(*main_socket, &read_fds);
+    while(recvBytes < sizeof(msgHeader))
+    {
+        timeout.tv_sec = 30;
+        timeout.tv_usec = 0;
+        i = select(*main_socket + 1, &read_fds, NULL, NULL, &timeout);
+        if (i < 0) {
+            mexErrMsgTxt("Network error.");
+        } else if (i == 0) {
+            mexErrMsgTxt("Network timeout error.");
+        }
+
+        /* Reception des donnes du capteur */
+        recvBytes += recv(*main_socket, *msg + recvBytes, sizeof(msgHeader), 0);
+    }
 
     /* TODO: Header Error handling */
 }
@@ -306,7 +335,7 @@ void logico_start(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
     /* Verification du message recu */
     receive_message((void**)&msg);
-    
+
     memcpy(&lHeader, msg, sizeof(msgHeader));
     if (lHeader.type != MSGID_CONNECT_ACK) mexErrMsgTxt("Incompatible ros4mat answer.");
 
@@ -613,64 +642,35 @@ void logico_unsubscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs
 /* */
 msgHeader logico_send_data_request(char inType, char **msg, unsigned int inStructSize)
 {
-    /* Le double pointeur sur msg est obligatoire pour le C */
+    /* The double pointer on msg is mandatory in C */
     msgHeader       lHeader;
     char            *msgCompress;
     char            *msgEmpty;
     int             i = 0;
-    unsigned int    recvBytes = 0;
     fd_set          read_fds;
     unsigned int    expectedRecvSize = 0;
     long            uncompressSize = 0;
     struct timeval  timeout;
 
-    /* Flusher le buffer de reception */
-    ioctl(*main_socket, FIONREAD, &recvBytes);
-    if (recvBytes > 0)
-    {
-        msgEmpty = (char *) mxMalloc(recvBytes);
-        recv(*main_socket, msgEmpty, recvBytes, 0);
-        mxFree(msgEmpty);
-    }
+    /* Send an empty packet requesting for the desired sensor */
+    send_message(
+        inType,
+        0,
+        0,
+        0,
+    )
 
-    recvBytes = 0;
-
-    /* Envoyer un paquet vide demandant les donnees d'un capteur */
-    *msg = (char *) mxCalloc(1, sizeof(msgHeader));
-    lHeader.type = inType;
-    lHeader.size = 0;
-    lHeader.packetTimestamp = 0.0;
-
-    memcpy(*msg, &lHeader, sizeof(msgHeader));
-    send(*main_socket, *msg, sizeof(msgHeader), 0);
-
-    FD_ZERO(&read_fds);
-    FD_SET(*main_socket, &read_fds);
-    while(recvBytes < sizeof(msgHeader))
-    {
-        timeout.tv_sec = 30;
-        timeout.tv_usec = 0;
-        i = select(*main_socket + 1, &read_fds, NULL, NULL, &timeout);
-        if (i < 0)
-        {
-            mexErrMsgTxt("Network error.");
-        }
-        else if (i == 0)
-        {
-            mexErrMsgTxt("Network timeout error.");
-        }
-
-        /* Reception des donnes du capteur */
-        recvBytes += recv(*main_socket, *msg + recvBytes, sizeof(msgHeader), 0);
-    }
+    /* Get the response message header */
+    receive_message(&msg)
 
     memcpy(&lHeader, *msg, sizeof(msgHeader));
-    if (lHeader.type != inType)
-    {
+    if (lHeader.type != inType) {
         mexErrMsgTxt("Incompatible ros4mat answer.");
     }
 
-    if (lHeader.size == 0) return lHeader;
+    if (lHeader.size == 0) {
+        return lHeader;
+    }
 
     /* On recoit le buffer des donnees, champ compressSize du header */
     expectedRecvSize = lHeader.compressSize;
@@ -681,12 +681,9 @@ msgHeader logico_send_data_request(char inType, char **msg, unsigned int inStruc
         timeout.tv_sec = 30;
         timeout.tv_usec = 0;
         i = select(*main_socket + 1, &read_fds, NULL, NULL, &timeout);
-        if (i < 0)
-        {
+        if (i < 0) {
             mexErrMsgTxt("Network error.");
-        }
-        else if (i == 0)
-        {
+        } else if (i == 0) {
             mexErrMsgTxt("Network timeout error.");
         }
 
