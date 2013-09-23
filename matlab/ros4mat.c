@@ -363,7 +363,6 @@ tctext[] =
     { "adc", MSGID_ADC },
     { "gps", MSGID_GPS },
     { "imu", MSGID_IMU },
-    { "batterie", MSGID_BATTERY },
     { "camera", MSGID_WEBCAM },
     { "camera_stereo", MSGID_WEBCAM_STEREO },
     { "hokuyo", MSGID_HOKUYO },
@@ -730,76 +729,6 @@ msgHeader logico_send_data_request(char inType, char **msg, unsigned int inStruc
     return lHeader;
 }
 
-/* */
-void logico_battery(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
-{
-    char            *msg = NULL;
-    msgHeader       lHeader;
-    unsigned int    h, i;
-    msgBattery      lBatteryMessage;
-    double          lPercentBattery = 0;
-
-    double          *out_data, *out_data_ts;
-
-    if (initialized == 0) mexErrMsgTxt("No connection established.");
-
-    lHeader = logico_send_data_request(MSGID_BATTERY, &msg, sizeof(msgBattery));
-
-    /* Formattage pour Matlab */
-    plhs[0] = mxCreateDoubleMatrix(9, lHeader.size, mxREAL);
-    plhs[1] = mxCreateDoubleMatrix(1, lHeader.size, mxREAL);
-    out_data = (double *) mxGetPr(plhs[0]);
-    out_data_ts = (double *) mxGetPr(plhs[1]);
-
-    /* Approximation de la charge de la batterie */
-    for(h = 0; h < lHeader.size; h++)
-    {
-        memcpy(&lBatteryMessage, msg + sizeof(msgHeader) + h * sizeof(msgBattery), sizeof(msgBattery));
-        lPercentBattery = (double)
-            (
-                (double) lBatteryMessage.cellsVoltage[0] +
-                (double) lBatteryMessage.cellsVoltage[1] +
-                (double) lBatteryMessage.cellsVoltage[2] +
-                (double) lBatteryMessage.cellsVoltage[3] +
-                (double) lBatteryMessage.cellsVoltage[4] +
-                (double) lBatteryMessage.cellsVoltage[5]
-            ) * 0.3 - 6.41;
-        if (lPercentBattery > 1)
-        {
-            lPercentBattery = 1;
-        }
-        else if (lPercentBattery < 0.05)
-        {
-            lPercentBattery = 0.05;
-        }
-
-        for(i = 0; i < 6; i++)
-        {
-            if (lBatteryMessage.cellsVoltage[i] < 3.0)
-            {
-                lBatteryMessage.state |= 0x100;
-            }
-
-            if (lBatteryMessage.cellsVoltage[i] < 3.6)
-            {
-                lBatteryMessage.state |= 0x200;
-            }
-        }
-
-        out_data[9 * h + 0] = (double) lBatteryMessage.state;
-        out_data[9 * h + 1] = (double) lPercentBattery;
-        out_data[9 * h + 2] = (double) lBatteryMessage.cellsVoltage[0];
-        out_data[9 * h + 3] = (double) lBatteryMessage.cellsVoltage[1];
-        out_data[9 * h + 4] = (double) lBatteryMessage.cellsVoltage[2];
-        out_data[9 * h + 5] = (double) lBatteryMessage.cellsVoltage[3];
-        out_data[9 * h + 6] = (double) lBatteryMessage.cellsVoltage[4];
-        out_data[9 * h + 7] = (double) lBatteryMessage.cellsVoltage[5];
-        out_data[9 * h + 8] = (double) lBatteryMessage.currentDrained;
-        out_data_ts[h] = (double) lBatteryMessage.timestamp;
-    }
-
-    mxFree(msg);
-}
 
 /* */
 void logico_imu(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
@@ -1388,7 +1317,6 @@ CmdTable[] =
     { "close", logico_close },
     { "subscribe", logico_subscribe },
     { "unsubscribe", logico_unsubscribe },
-    { "batterie", logico_battery },
     { "adc", logico_adc },
     { "imu", logico_imu },
     { "gps", logico_gps },

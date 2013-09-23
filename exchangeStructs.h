@@ -203,15 +203,6 @@ struct msgImu{
     double timestamp;               /* Timestamp de la MESURE */
 } PACKEDSTRUCT;
 
-#define MSGID_BATTERY 0x22
-typedef struct msgBattery msgBattery;
-struct msgBattery{
-    unsigned char state;            /* Etat de la batterie (0x00 = inactive, 0x01 = charge, etc.) */
-    float cellsVoltage[6];          /* Tension des 6 cellules */
-    float currentDrained;           /* Courant tire de la batterie */
-    double timestamp;               /* Timestamp de la MESURE */
-} PACKEDSTRUCT;
-
 #define MSGID_GPS 0x23
 #define MSGID_GPS_STATE_NOFIX 0x00
 #define MSGID_GPS_STATE_FIX2D 0x10
