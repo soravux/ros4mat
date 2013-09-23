@@ -49,7 +49,7 @@
 #elif ULONG_MAX == 65535
 #define uint16_t    unsigned long
 #else
-#define uint16_t    CANT_FIND_8BIT_INT    /* Will generate a compile error downstream */
+#define uint16_t    CANT_FIND_8BIT_INT  /* Will generate a compile error downstream */
 #endif
 
 /* Networking on Windows */
@@ -57,9 +57,10 @@
 #include <winsock2.h>
 
 #define socklen_t    int
-#define close        closesocket            /* close() doesn't exist on windows, it's closesocket for winsock2 */
+#define close        closesocket        /* close() doesn't exist on windows, it's closesocket for winsock2 */
 #define ioctl        ioctlsocket
 #pragma pack(1)
+
 #else
 
 /* Networking on Linux */
@@ -132,6 +133,7 @@ int init_winsock()
 
     return 0;
 }
+
 #endif /* #if defined USE_WINSOCK */
 
 
@@ -175,6 +177,7 @@ void send_message(const char type, uint32_t qty, char *payload, uint32_t payload
     mxFree(msg);
 }
 
+
 int flush_reception_buffer(void)
 {
     char            *msgEmpty;
@@ -191,8 +194,8 @@ int flush_reception_buffer(void)
     return 0;
 }
 
-/* Receives an uninitialized pointer */
-int receive_message(void **msg)
+/* Receives an uninitialized pointer and receives the header */
+int receive_message_header(void **msg)
 {
     unsigned int    recvBytes = 0;
     fd_set          read_fds;
@@ -343,7 +346,7 @@ void logico_start(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     );
 
     /* Verification du message recu */
-    receive_message((void**)&msg);
+    receive_message_header((void**)&msg);
 
     memcpy(&lHeader, msg, sizeof(msgHeader));
     if (lHeader.type != MSGID_CONNECT_ACK) mexErrMsgTxt("Incompatible ros4mat answer.");
@@ -667,7 +670,7 @@ msgHeader logico_send_data_request(char inType, char **msg, unsigned int inStruc
     send_message(inType, 0, 0, 0);
 
     /* Get the response message header */
-    receive_message((void**)msg);
+    receive_message_header((void**)msg);
 
     memcpy(&lHeader, *msg, sizeof(msgHeader));
     if (lHeader.type != inType) {
@@ -991,7 +994,7 @@ void logico_camera(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
                 msg_pos += lCam.sizeData;
         }
 
-        /* Formattage pour Matlab */
+        /* Matlab formatting */
         for(y = 0, b = 0; y < lCam.width * lCam.height * 3 - lCam.width * 3; b++, y += lCam.width * 3)
         {
             for(x = y, a = b; x < y + lCam.width * 3; a += lCam.height)
@@ -1073,7 +1076,7 @@ void logico_camera_stereo(int nlhs, mxArray *plhs[], int nrhs, const mxArray *pr
                 msg_pos += lCam_r.sizeData;
         }
 
-        /* Formattage pour Matlab */
+        /* Matlab formatting */
         for(y = 0, b = 0; y < lCam_l.width * lCam_l.height * 3 - lCam_l.width * 3; b++, y += lCam_l.width * 3)
         {
             for(x = y, a = b; x < y + lCam_l.width * 3; a += lCam_l.height)
@@ -1098,9 +1101,8 @@ void logico_kinect(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
     char            *msg = NULL;
     msgHeader       lHeader;
-    msgCam          lCam;
-    unsigned int    i;
-    unsigned int    a, b, y, x;
+    msgKinect       lCam;
+    unsigned int    i, a, b, y, x;
     unsigned short  *out_data;
     double          *out_data_ts;
     unsigned int    sizeImg = 0;
@@ -1238,8 +1240,7 @@ void logico_hokuyo(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     {
         /* On passe sur tous les echantillons */
         memcpy(&lHokuyo, msg + sizeof(msgHeader) + i * sizeof(msgHokuyo), sizeof(msgHokuyo));
-        memcpy
-        (
+        memcpy(
             out_data + i * hokuyo_size[0] * sizeof(float),
             msg + sizeof(msgHeader) + lHeader.size * sizeof(msgHokuyo) + i * hokuyo_size[0] * sizeof(float),
             hokuyo_size[0] * sizeof(float)
@@ -1271,7 +1272,7 @@ void logico_computer(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
     lHeader = logico_send_data_request(MSGID_COMPUTER, &msg, sizeof(msgComputer));
 
-    /* Formattage pour Matlab */
+    /* Matlab formatting */
     plhs[0] = mxCreateDoubleMatrix(15, lHeader.size, mxREAL);
     plhs[1] = mxCreateDoubleMatrix(1, lHeader.size, mxREAL);
     out_data = (double *) mxGetPr(plhs[0]);
@@ -1330,8 +1331,8 @@ CmdTable[] =
     { "sorties_numeriques", logico_dout }
 };
 
-/* */
 
+/* */
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
     char        StrBuffer[65];
