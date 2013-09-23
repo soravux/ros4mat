@@ -175,14 +175,11 @@ void send_message(const char type, uint32_t qty, char *payload, uint32_t payload
     mxFree(msg);
 }
 
-/* Receives an uninitialized pointer */
-int receive_message(void **msg)
+int flush_reception_buffer(void)
 {
+    char            *msgEmpty;
     unsigned int    recvBytes = 0;
-    fd_set          read_fds;
-    *msg = mxMalloc(sizeof(msgHeader));
 
-    /* Flusher le buffer de reception */
     ioctl(*main_socket, FIONREAD, &recvBytes);
     if (recvBytes > 0)
     {
@@ -190,6 +187,18 @@ int receive_message(void **msg)
         recv(*main_socket, msgEmpty, recvBytes, 0);
         mxFree(msgEmpty);
     }
+
+    return 0;
+}
+
+/* Receives an uninitialized pointer */
+int receive_message(void **msg)
+{
+    unsigned int    recvBytes = 0;
+    fd_set          read_fds;
+    struct timeval  timeout;
+    int             i;
+    *msg = mxMalloc(sizeof(msgHeader));
 
     recvBytes = 0;
 
@@ -650,18 +659,16 @@ msgHeader logico_send_data_request(char inType, char **msg, unsigned int inStruc
     fd_set          read_fds;
     unsigned int    expectedRecvSize = 0;
     long            uncompressSize = 0;
+    unsigned int    recvBytes = 0;
     struct timeval  timeout;
 
+    flush_reception_buffer();
+
     /* Send an empty packet requesting for the desired sensor */
-    send_message(
-        inType,
-        0,
-        0,
-        0,
-    )
+    send_message(inType, 0, 0, 0);
 
     /* Get the response message header */
-    receive_message(&msg)
+    receive_message((void**)msg);
 
     memcpy(&lHeader, *msg, sizeof(msgHeader));
     if (lHeader.type != inType) {
