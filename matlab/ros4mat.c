@@ -185,7 +185,7 @@ int receive_message(void **msg)
 }
 
 
-void logico_close(void)
+void logico_close(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
     send_message(MSGID_QUIT, 0, 0, 0);
 
@@ -206,7 +206,7 @@ void cleanup()
     /* To be done on the parent MATLAB onClose software */
     if (initialized != 0)
     {
-        logico_close();
+        logico_close(0, 0, 0, 0);
     }
 }
 
@@ -486,23 +486,22 @@ void logico_subscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]
         /* Use the acquisition frequency the buffer size (buffer 1 second) */
         lSubscribeMessage.bufferSize = (uint16_t) mxGetScalar(prhs[1]);
     }
-    /* if (nrhs > 6) { mexWarnMsgTxt("Cannot understand request: Too much arguments."); } */
     /* Parse parameters for each sensor */
     switch (lSubscribeMessage.typeCapteur) {
         case MSGID_ADC:
-            lParameters.channels = (signed char) mxGetScalar(prhs[2]);
+            lParameters.adc.channels = (signed char) mxGetScalar(prhs[2]);
             if (!lParamSize) { lParamSize = sizeof(paramsAdc); }
         case MSGID_GPS:
         case MSGID_IMU:
             /* These messages have freqSend added */
             if (nrhs > 4) {
-                lSubscribeMessage.freqSend = (uint16_t) mxGetScalar(prhs[4]);
-                if (lParameters.freqSend > (uint16_t) mxGetScalar(prhs[1])) {
-                lParameters.freqSend = (uint16_t) mxGetScalar(prhs[1]);
+                lParameters.adc.freqSend = (uint16_t) mxGetScalar(prhs[4]);
+                if (lParameters.adc.freqSend > (uint16_t) mxGetScalar(prhs[1])) {
+                lParameters.adc.freqSend = (uint16_t) mxGetScalar(prhs[1]);
             }
             } else {
                 /* Put default freqSend value based of freqAcquisition */
-                lParameters.freqSend = (uint16_t) ((float) mxGetScalar(prhs[1]) / 4.0 + 10.0);
+                lParameters.adc.freqSend = (uint16_t) ((float) mxGetScalar(prhs[1]) / 4.0 + 10.0);
             }
             if (!lParamSize) { lParamSize = sizeof(paramsImu); }
         case MSGID_HOKUYO:
@@ -514,10 +513,10 @@ void logico_subscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]
         case MSGID_WEBCAM_STEREO:
             if (!lParamSize) { lParamSize = sizeof(paramsStereoCam); }
             if (nrhs > 5) {
-                lParameters.idLeft = (unsigned char) mxGetScalar(prhs[5]);
+                lParameters.stereocam.idLeft = (unsigned char) mxGetScalar(prhs[5]);
             }
             if (nrhs > 6) {
-                lParameters.idRight = (unsigned char) mxGetScalar(prhs[6]);
+                lParameters.stereocam.idRight = (unsigned char) mxGetScalar(prhs[6]);
             }
             /* I'm sorry! :( */
             goto parse_resolution;
@@ -528,7 +527,7 @@ void logico_subscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]
 
             /* Camera ID */
             if (nrhs > 5) {
-                lParameters.id = (unsigned char) mxGetScalar(prhs[5]);
+                lParameters.cam.id = (unsigned char) mxGetScalar(prhs[5]);
             }
 
         parse_resolution:
@@ -536,13 +535,13 @@ void logico_subscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]
             if (mxGetString(prhs[2], StrBuffer, sizeof(StrBuffer) - 1)) {
                 mexErrMsgTxt("Error: Could not interpretate resolution.");
             }
-            lParameters.width = (int) atoi(StrBuffer) / 20;
-            if (lParameters.width < 8 || lParameters.width > 80) {
+            lParameters.cam.width = (int) atoi(StrBuffer) / 20;
+            if (lParameters.cam.width < 8 || lParameters.cam.width > 80) {
                 mexWarnMsgTxt("Unknown resolution. Reverting to default resolution (320x240).");
-                lParameters.width = 16;
+                lParameters.cam.width = 16;
             }
-            lParameters.width *= 20;
-            lParameters.height = lParameters.width * 3 / 4;
+            lParameters.cam.width *= 20;
+            lParameters.cam.height = lParameters.cam.width * 3 / 4;
 
             break;
 
@@ -567,7 +566,7 @@ void logico_subscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]
     send_message(
         MSGID_SUBSCRIBE,
         1,
-        &msg,
+        msg,
         sizeof(msgSubscribe) + lParamSize
     );
 }
@@ -878,50 +877,55 @@ void logico_serial(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     msgHeader       lHeader;
     msgSerialCmd    lSerie;
     msgSerialAns    lSerieAns;
-    int             h;
+    int             h, lPortSize;
     char            *out_data;
-    char            StrBuffer[101];
 
     if (initialized == 0) mexErrMsgTxt("No connection established.");
 
-    msg = (char *) mxCalloc(1, sizeof(msgHeader) + sizeof(msgSerialCmd));
-    lHeader.type = MSGID_SERIAL_CMD;
-    lHeader.size = 1;
-    lHeader.packetTimestamp = 0.0;
+    /* Parse parameters */
 
-    memcpy(msg, &lHeader, sizeof(msgHeader));
-
-    if (mxGetString(prhs[0], StrBuffer, sizeof(StrBuffer) - 1))
-        mexErrMsgTxt("Could not understand port name. It must be a string with less than 100 characters.");
-
-    if ((short) mxGetScalar(prhs[5]) > sizeof(lSerie.data))
-        mexErrMsgTxt("Send buffer size must be lower than 1024 bytes.");
-
-    if ((short) mxGetScalar(prhs[6]) > sizeof(lSerieAns.data))
-        mexErrMsgTxt("Receive buffer size must be lower than 1024 bytes.");
-
-    strcpy(lSerie.port, StrBuffer);
     lSerie.speed = (unsigned short) mxGetScalar(prhs[1]);
     lSerie.parity = (char) mxGetScalar(prhs[2]);
     lSerie.stopBits = (char) mxGetScalar(prhs[3]);
     lSerie.sendLength = (short) mxGetScalar(prhs[5]);
-    for(h = 0; h < lSerie.sendLength * 2; h += 2)
-    {
-        lSerie.data[h / 2] = ((unsigned char *) mxGetChars(prhs[4]))[h];
-    }
-
     lSerie.readLength = (short) mxGetScalar(prhs[6]);
     lSerie.readTimeoutSec = (short) mxGetScalar(prhs[7]);
     lSerie.readTimeoutMicro = (long) mxGetScalar(prhs[8]);
     lSerie.closeAfterComm = (char) mxGetScalar(prhs[9]);
 
-    memcpy(msg + sizeof(msgHeader), &lSerie, sizeof(msgSerialCmd));
+    /* Get payload size (port name + data to send) and generate a buffer long enough*/
+    lPortSize = mxGetN(prhs[0]) * sizeof(mxChar) + 1;
+    msg = (char *) mxCalloc(1, sizeof(msgSerialCmd) + lPortSize + (short) mxGetScalar(prhs[5]));
 
-    send(*main_socket, msg, sizeof(msgHeader) + sizeof(msgSerialCmd), 0);
+    /* Copy payload to the message. */
+
+    if (mxGetString(prhs[0], msg + sizeof(msgSerialCmd), (mwSize)lPortSize)) {
+        mexErrMsgTxt("Could not understand port name.");
+    }
+
+    /*for(h = 0; h < lSerie.sendLength * 2; h += 2) {
+        lSerie.data[h / 2] = ((unsigned char *) mxGetChars(prhs[4]))[h];
+    }*/
+    if (mxGetString(prhs[4], msg + sizeof(msgSerialCmd) + lPortSize, (mwSize)lSerie.sendLength)) {
+        mexErrMsgTxt("Could not understand data to send.");
+    }
+
+    memcpy(msg, &lSerie, sizeof(msgSerialCmd));
+
+    /*send(*main_socket, msg, sizeof(msgHeader) + sizeof(msgSerialCmd), 0); */
+    /* Send the message */
+    send_message(
+        MSGID_SERIAL_CMD,
+        1,
+        msg,
+        sizeof(msgSerialCmd) + lPortSize + lSerie.sendLength
+    );
 
     recv(*main_socket, msg, sizeof(msgHeader), MSG_PEEK);
     memcpy(&lHeader, msg, sizeof(msgHeader));
-    if (lHeader.type != MSGID_SERIAL_ANS) mexErrMsgTxt("Reponse incompatible du robot.");
+    if (lHeader.type != MSGID_SERIAL_ANS) {
+        mexErrMsgTxt("Reponse incompatible du robot.");
+    }
 
     msg = (char *) mxCalloc(1, sizeof(msgHeader) + lHeader.size * sizeof(msgSerialAns));
 
@@ -929,7 +933,7 @@ void logico_serial(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
     /* Formattage pour Matlab */
     memcpy(&lSerieAns, msg + sizeof(msgHeader) + sizeof(msgSerialAns), sizeof(msgSerialAns));
-    out_data = mxCalloc(lSerieAns.bufferLength, sizeof(char));
+    out_data = mxCalloc(lSerieAns.dataLength, sizeof(char));
     plhs[0] = mxCreateString(out_data);
     mxFree(msg);
 }
@@ -1041,18 +1045,17 @@ void logico_camera(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
         /* Get image source */
         switch (lCam.compressionType) {
-            case R4M_COMP_JPEG:
-                /* Decompress the image first and set the pixel source pointer to it */
-                inPixelSource = (char *) mxMalloc(sizeImg);
-                decodeJPEG(msg + msg_pos, lCam.sizeData, (uint32_t*)inPixelSource);
-                msg_pos += lCam.sizeData;
-                break;
-            default:
-            case R4M_COMP_NONE:
+            case MSGID_WEBCAM_NOCOMPRESSION:
                 /* Set the pixel source pointer directly to the message header */
                 inPixelSource = &msg[sizeof(msgHeader)               /* Skip the packet header */
                                      + sizeof(msgCam) * lHeader.size /* Skip the msgCam Header */
                                      + sizeImg * i];           /* Skip previous images */
+                break;
+            default:
+                /* Decompress the image first and set the pixel source pointer to it */
+                inPixelSource = (char *) mxMalloc(sizeImg);
+                decodeJPEG(msg + msg_pos, lCam.sizeData, (uint32_t*)inPixelSource);
+                msg_pos += lCam.sizeData;
         }
 
         /* Formattage pour Matlab */
@@ -1120,7 +1123,14 @@ void logico_camera_stereo(int nlhs, mxArray *plhs[], int nrhs, const mxArray *pr
 
         /* Get image source */
         switch (lCam_l.compressionType) {
-            case R4M_COMP_JPEG:
+            case MSGID_WEBCAM_NOCOMPRESSION:
+                /* Set the pixel source pointer directly to the message header */
+                inPixelSource_l = &msg[sizeof(msgHeader)               /* Skip the packet header */
+                                       + sizeof(msgCam) * lHeader.size /* Skip the msgCam Header */
+                                       + sizeImg * i];           /* Skip previous images */
+                inPixelSource_r = inPixelSource_l + sizeImg; /* One image further */
+                break;
+            default:
                 /* Decompress the image first and set the pixel source pointer to it */
                 inPixelSource_l = (char *) mxMalloc(sizeImg);
                 inPixelSource_r = (char *) mxMalloc(sizeImg);
@@ -1128,14 +1138,6 @@ void logico_camera_stereo(int nlhs, mxArray *plhs[], int nrhs, const mxArray *pr
                 msg_pos += lCam_l.sizeData;
                 decodeJPEG(msg + msg_pos, lCam_r.sizeData, (uint32_t*)inPixelSource_r);
                 msg_pos += lCam_r.sizeData;
-                break;
-            default:
-            case R4M_COMP_NONE:
-                /* Set the pixel source pointer directly to the message header */
-                inPixelSource_l = &msg[sizeof(msgHeader)               /* Skip the packet header */
-                                       + sizeof(msgCam) * lHeader.size /* Skip the msgCam Header */
-                                       + sizeImg * i];           /* Skip previous images */
-                inPixelSource_r = inPixelSource_l + sizeImg; /* One image further */
         }
 
         /* Formattage pour Matlab */

@@ -89,11 +89,11 @@ struct paramsGps{
 
 typedef struct paramsCamera paramsCamera;
 struct paramsCamera{
-    unsigned short fps;             /* Nombre d'images par seconde */
+    unsigned short fps;             /* [Don't move] Nombre d'images par seconde */
+    unsigned short width;           /* [Don't move] Largeur de l'image acquise en pixels */
+    unsigned short height;          /* [Don't move] Hauteur de l'image acquise en pixels */
     unsigned char id;               /* Id de la camera (p. ex. 0 pour /dev/video0) */
     unsigned char compression;      /* Compression de l'image (0 = pas de compression, 0<n<100 = JPEG) */
-    unsigned short width;           /* Largeur de l'image acquise en pixels */
-    unsigned short height;          /* Hauteur de l'image acquise en pixels */
     unsigned char useROI;           /* Definit si on doit seulement envoyer une partie de l'image */
     unsigned short roiTopLeft;      /* Coordonnees de la sous-image a envoyer */
     unsigned short roiTopRight;
@@ -103,12 +103,12 @@ struct paramsCamera{
 
 typedef struct paramsStereoCam paramsStereoCam;
 struct paramsStereoCam{
-    unsigned short fps;             /* Nombre d'images par seconde */
+    unsigned short fps;             /* [Don't move] Nombre d'images par seconde */
+    unsigned short width;           /* [Don't move] Largeur de l'image acquise en pixels */
+    unsigned short height;          /* [Don't move] Hauteur de l'image acquise en pixels */
     unsigned char idLeft;           /* Id de la camera de GAUCHE (p. ex. 0 pour /dev/video0) */
     unsigned char idRight;          /* Id de la camera de DROITE */
     unsigned char compression;      /* Compression de l'image (0 = pas de compression, 0<n<100 = JPEG) */
-    unsigned short width;           /* Largeur de l'image acquise en pixels */
-    unsigned short height;          /* Hauteur de l'image acquise en pixels */
     unsigned char useROI;           /* Definit si on doit seulement envoyer une partie de l'image */
     unsigned short leftRoiTopLeft;  /* Coordonnees de la sous-image a envoyer pour la camera de GAUCHE */
     unsigned short leftRoiTopRight;     
@@ -122,14 +122,14 @@ struct paramsStereoCam{
 
 typedef struct paramsKinect paramsKinect;
 struct paramsKinect{
-    unsigned char id;               /* Id de la Kinect */
+    unsigned short fpsRGB;          /* [Don't move] Nombre d'images par seconde */
+    unsigned short widthRGB;        /* [Don't move] Largeur de l'image acquise en pixels */
+    unsigned short heightRGB;       /* [Don't move] Hauteur de l'image acquise en pixels */
     unsigned char sendRGB;          /* Acquisitionner ou non l'image RGB */
+    unsigned char id;               /* Id de la Kinect */
     unsigned char sendDepth;        /* Acquisitionner ou non l'image de profondeur */
-    unsigned short fpsRGB;          /* Nombre d'images par seconde */
     unsigned short fpsDepth;        /* Nombre d'images par seconde */
     unsigned char compressionRGB;   /* Compression de l'image RGB (0 = pas de compression, 0<n<100 = JPEG) */
-    unsigned short widthRGB;        /* Largeur de l'image acquise en pixels */
-    unsigned short heightRGB;       /* Hauteur de l'image acquise en pixels */
 } PACKEDSTRUCT;
 
 typedef struct paramsHokuyo paramsHokuyo;
@@ -149,6 +149,8 @@ struct msgUnsubscribe{
     unsigned char typeCapteur;      /* Type de capteur voulu (MSGID_*) */
 } PACKEDSTRUCT;
 
+/* A serial_cmd message is build like this:
+ *   [Header | port | send data]   */
 #define MSGID_SERIAL_CMD 0x05
 typedef struct msgSerialCmd msgSerialCmd;
 struct msgSerialCmd{
@@ -227,6 +229,7 @@ struct msgGps{
 } PACKEDSTRUCT;
 
 #define MSGID_WEBCAM 0x24
+#define MSGID_WEBCAM_NOCOMPRESSION 0x00
 /* Cette structure est speciale : elle contient la largeur, la hauteur et le nombre de canaux
  * de l'image. Elle contient aussi un sizeData, qui indique combien d'octets sont a recevoir
  * pour transmettre l'image (normalement width*height*channels).
