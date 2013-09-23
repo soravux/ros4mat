@@ -277,10 +277,11 @@ struct msgHokuyo{
 
 #define MSGID_KINECT_DEPTH 0x28
 #define MSGID_KINECT 0x29           /* Represents [RGB + Depth] in Matlab and RGB only in agent buffer */
-/* Agregat de 2 structures msgCam. Les donnees envoyees ressemblent donc a :
- * | msgHeader | msgKinect | dataRGB | dataDepth | msgKinect | dataRGB | dataKinect | ... ... ... |
- * Si une des deux images n'est pas presente, alors sa taille est simplement mise a 0 dans le msgCam correspondant
- * Le receveur peut assumer que les deux images decrites dans la structure msgKinect sont synchronisees.
+/* Aggregation of two msgCam structs. The msgKinect elements are all packed up right after the msgHeader
+ * and then interleaved data (RGB + Depth) is added as a payload. Packets looks like this:
+ * | msgHeader | msgKinect | msgKinect | ... | dataRGB | dataDepth | dataRGB | dataKinect | ... | ... |
+ * If one of the two images aren't requested or available, its size is set to 0 in its related msgCam (inside the msgKinect)
+ * The receiver can assume that both images described in msgKinect are synchronized.
  */
 typedef struct msgKinect msgKinect;
 struct msgKinect{
