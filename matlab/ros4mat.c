@@ -940,28 +940,22 @@ void logico_gps(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 }
 
 
-void format_camera_image(msgCam *lCam, char *msg, unsigned int i, unsigned int totalQty, unsigned char *out_data, double *out_data_ts)
+void format_camera_image(msgCam *lCam, char *msg, unsigned int i, unsigned char *out_data, double *out_data_ts)
 {
     char            *inPixelSource;
     unsigned int    sizeImg = lCam->width * lCam->height * 3;
-    uint32_t        msg_pos;
     unsigned int    a, b, y, x;
-
-    msg_pos = sizeof(msgHeader) + sizeof(msgCam) * totalQty;
 
     /* Get image source */
     switch (lCam->compressionType) {
         case MSGID_WEBCAM_NOCOMPRESSION:
             /* Set the pixel source pointer directly to the message header */
-            inPixelSource = &msg[sizeof(msgHeader)              /* Skip the packet header */
-                                 + sizeof(msgCam) * totalQty    /* Skip the msgCam Header */
-                                 + sizeImg * i];                /* Skip previous images */
+            inPixelSource = msg;
             break;
         default:
             /* Decompress the image first and set the pixel source pointer to it */
-            inPixelSource = (char *) mxMalloc(sizeImg);
-            decodeJPEG(msg + msg_pos, lCam->sizeData, (uint32_t*)inPixelSource);
-            msg_pos += lCam->sizeData;
+            inPixelSource = (char *) mxMalloc(sizeImg * sizeof(char));
+            decodeJPEG(msg, lCam->sizeData, (uint32_t*)inPixelSource);
     }
 
     /* Matlab formatting */
@@ -988,6 +982,8 @@ void logico_camera(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     unsigned int    i;
     unsigned char   *out_data;
     double          *out_data_ts;
+    unsigned int    sizeImg;
+    char            *image_in_msg = NULL; /* Track where the image beginning is every frame */
     unsigned int    cam_size[4] = { 0, 0, 3, 0 };
 
     if (initialized == 0) mexErrMsgTxt("No connection established.");
@@ -999,22 +995,25 @@ void logico_camera(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     cam_size[0] = lCam.height;
     cam_size[1] = lCam.width;
     cam_size[3] = lHeader.size;
+    sizeImg = lCam.width * lCam.height * 3;
 
     plhs[0] = mxCreateNumericArray(4, cam_size, mxUINT8_CLASS, mxREAL);
     plhs[1] = mxCreateDoubleMatrix(1, lHeader.size, mxREAL);
     out_data = (unsigned char *) mxGetData(plhs[0]);
     out_data_ts = (double *) mxGetPr(plhs[1]);
 
+    image_in_msg = msg + sizeof(msgHeader) + sizeof(msgCam) * lHeader.size;
+
     for(i = 0; i < lHeader.size; i++)
     {
         format_camera_image(
             (msgCam*)msg + sizeof(msgHeader) + i * sizeof(msgCam),
-            msg,
+            image_in_msg,
             i,
-            lHeader.size,
             out_data,
             out_data_ts
         );
+        image_in_msg += lCam.sizeData;
     }
 
     mxFree(msg);
@@ -1104,18 +1103,37 @@ void logico_camera_stereo(int nlhs, mxArray *plhs[], int nrhs, const mxArray *pr
     mxFree(msg);
 }
 
+void format_kinect_depth(msgCam *lCam, char *msg, unsigned int i, unsigned short *out_data, double *out_data_ts)
+{
+    unsigned int    sizeImg = lCam->width * lCam->height * 1;
+    unsigned int    a, b, y, x;
+
+    /* Matlab formatting */
+    for(y = 0, b = 0; y < lCam->width * lCam->height - lCam->width; b++, y += lCam->width)
+    {
+        for(x = y, a = b; x < y + lCam->width; a += lCam->height)
+        {
+            out_data[a + i * sizeImg] = *(msg + x++ * 2);
+        }
+    }
+
+    out_data_ts[i] = (double) lCam->timestamp;
+}
+
 /* */
 void logico_kinect(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
     char            *msg = NULL;
+    char            *image_in_msg;
     msgHeader       lHeader;
     msgKinect       lKinect;
     unsigned int    i, a, b, y, x;
-    unsigned short  *out_data;
+    unsigned char   *out_data_rgb;
+    unsigned short  *out_data_depth;
     double          *out_data_ts;
     unsigned int    sizeImg = 0;
-
-    unsigned int    cam_size[4] = { 0, 0, 4, 0 };
+    unsigned int    rgb_size[4] = { 0, 0, 4, 0 };
+    unsigned int    depth_size[4] = { 0, 0, 4, 0 };
 
     if (initialized == 0) mexErrMsgTxt("No connection established.");
 
@@ -1123,45 +1141,43 @@ void logico_kinect(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
     memcpy(&lKinect, msg + sizeof(msgHeader), sizeof(msgCam));
 
-    cam_size[0] = lKinect.height;
-    cam_size[1] = lKinect.width;
-    cam_size[3] = lHeader.size;
+    rgb_size[0] = lKinect.infoRGB.height;
+    rgb_size[1] = lKinect.infoRGB.width;
+    rgb_size[3] = lHeader.size;
+    depth_size[0] = lKinect.infoDepth.height;
+    depth_size[1] = lKinect.infoDepth.width;
+    depth_size[3] = lHeader.size;
 
-    plhs[0] = mxCreateNumericArray(4, cam_size, mxUINT16_CLASS, mxREAL); /* RGB */
-    plhs[1] = mxCreateNumericArray(4, cam_size, mxUINT16_CLASS, mxREAL); /* Depth */
+    plhs[0] = mxCreateNumericArray(3, rgb_size, mxUINT8_CLASS, mxREAL); /* RGB */
+    plhs[1] = mxCreateNumericArray(1, depth_size, mxUINT16_CLASS, mxREAL); /* Depth */
     plhs[2] = mxCreateDoubleMatrix(1, lHeader.size, mxREAL);
-    out_data = (unsigned short *) mxGetData(plhs[0]);
-    out_data = (unsigned short *) mxGetData(plhs[1]);
+    out_data_rgb = (unsigned char *) mxGetData(plhs[0]);
+    out_data_depth = (unsigned short *) mxGetData(plhs[1]);
     out_data_ts = (double *) mxGetPr(plhs[2]);
+
+    image_in_msg = msg + sizeof(msgHeader) + sizeof(msgCam) * lHeader.size;
 
     for(i = 0; i < lHeader.size; i++)
     {
-        /* On passe sur toutes les images */
-        memcpy(&lKinect, msg + sizeof(msgHeader) + i * sizeof(msgCam), sizeof(msgCam));
+        /* Process RGB */
+        format_camera_image(
+            (msgCam*)msg + sizeof(msgHeader) + i * sizeof(msgKinect),
+            image_in_msg,
+            i,
+            out_data_rgb,
+            out_data_ts
+        );
+        image_in_msg += lKinect.infoRGB.sizeData;
 
-        sizeImg = lKinect.width * lKinect.height * 3 + lKinect.width * lKinect.height * sizeof(uint16_t);
-
-        /* Formattage pour Matlab */
-        for(y = 0, b = 0; y < lCam.width * lCam.height * 4 - lCam.width * 4; b++, y += lCam.width * 4)
-        {
-            for(x = y, a = b; x < y + lCam.width * 4; a += lCam.height)
-            {
-                /* */
-
-                /* SIZE IMG EST FAUX CA VA PETER NE PAS UTILISER */
-
-                /* DANS LA PARTIE DE GAUCHE DE L'EQUATION */
-
-                /* */
-                out_data[a + i * sizeImg + lCam.width * lCam.height * 0] = (unsigned short) msg[sizeof(msgHeader) + sizeof(msgCam) * lHeader.size + sizeImg * i + x++];
-                out_data[a + i * sizeImg + lCam.width * lCam.height * 1] = (unsigned short) msg[sizeof(msgHeader) + sizeof(msgCam) * lHeader.size + sizeImg * i + x++];
-                out_data[a + i * sizeImg + lCam.width * lCam.height * 2] = (unsigned short) msg[sizeof(msgHeader) + sizeof(msgCam) * lHeader.size + sizeImg * i + x++];
-                out_data[a + i * sizeImg + lCam.width * lCam.height * 3] = *(unsigned short *) &msg[sizeof(msgHeader) + sizeof(msgCam) * lHeader.size + sizeImg * i + x];
-                x += 2;
-            }
-        }
-
-        out_data_ts[i] = (double) lCam.timestamp;
+        /* Process Depth */
+        format_kinect_depth(
+            (msgCam*)msg + sizeof(msgHeader) + i * sizeof(msgCam),
+            image_in_msg,
+            i,
+            out_data_depth,
+            out_data_ts
+        );
+        image_in_msg += lKinect.infoDepth.sizeData;
     }
 
     mxFree(msg);
@@ -1197,21 +1213,13 @@ void logico_kinect_ir(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]
 
     for(i = 0; i < lHeader.size; i++)
     {
-        /* On passe sur toutes les images */
-        memcpy(&lCam, msg + sizeof(msgHeader) + i * sizeof(msgCam), sizeof(msgCam));
-
-        sizeImg = lCam.width * lCam.height * 1;
-
-        /* Formattage pour Matlab */
-        for(y = 0, b = 0; y < lCam.width * lCam.height - lCam.width; b++, y += lCam.width)
-        {
-            for(x = y, a = b; x < y + lCam.width; a += lCam.height)
-            {
-                out_data[a + i * sizeImg + 0] = *(unsigned short *) &msg[sizeof(msgHeader) + sizeof(msgCam) * lHeader.size + 2 * sizeImg * i + x++ *2];
-            }
-        }
-
-        out_data_ts[i] = (double) lCam.timestamp;
+        format_kinect_depth(
+            (msgCam*)msg + sizeof(msgHeader) + i * sizeof(msgCam),
+            msg + sizeof(msgHeader) + sizeof(msgCam) * lHeader.size + 2 * sizeImg * i,
+            i,
+            out_data,
+            out_data_ts
+        );
     }
 
     mxFree(msg);
