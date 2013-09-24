@@ -1380,8 +1380,8 @@ int main(int argc, char **argv)
                     msgSerialCmd    lSerialCmd;
                     msgSerialAns    lSerialAns;
 
-                    memset(&msgHeader, 0, sizeof(msgHeader));
-                    memset(&msgSerialAns, 0, sizeof(msgSerialAns));
+                    memset(&lAnswerHeader, 0, sizeof(msgHeader));
+                    memset(&lSerialAns, 0, sizeof(msgSerialAns));
 
                     char            *lRetour;
                     uint32_t        lRetourSize = 0;
