@@ -127,6 +127,8 @@ struct matlabClient
 {
     int                                                                         id;
     char                                                                        compression;
+    char                                                                        cameraCompression;      // 0 = No compression, ]0, 100] = JPEG with given compression level
+    char                                                                        kinectCompression;      // 0 = No compression, ]0, 100] = JPEG with given compression level
     std::map<unsigned int, std::pair<ros::Subscriber, std::queue<void *> > >    subscribers;    // subscribers, buffered data
     std::map<unsigned int, uint32_t>                                            buffersInfo;    // Allocated size
 };
@@ -1370,7 +1372,6 @@ int main(int argc, char **argv)
                     n = recvBytes;
 
                     msgHeader       lAnswerHeader;
-                    msgConnectAck   lConnectAck;
                     msgConnect      lConnect;
                     msgSubscribe    lSubscribe;
                     msgComputer     lComputer;
@@ -1398,7 +1399,7 @@ int main(int argc, char **argv)
                     case MSGID_CONNECT:
                         ROS_DEBUG("Received Connect");
                         memcpy(&lConnect, msg, sizeof(msgConnect));
-                        lAnswer = new char[sizeof(msgHeader) + sizeof(msgConnectAck)];
+                        lAnswer = new char[sizeof(msgHeader)];
                         lAnswerHeader.type = MSGID_CONNECT_ACK;
                         lAnswerHeader.error = 0;
                         lAnswerHeader.size = 1;
@@ -1406,30 +1407,29 @@ int main(int argc, char **argv)
 
                         if(lHeader.clientId == 0){
                             // Le client demande un ID (premiere connexion)
-                            if(clients.empty()){
-                                lConnectAck.clientId = 1;
+                            if(clients.empty()){                               
+                                lAnswerHeader.clientId = 1;
                             }
                             else{
                                 std::map<uint32_t,matlabClient>::reverse_iterator rend;
                                 rend = clients.rbegin();
-                                lConnectAck.clientId = rend->first;
+                                lAnswerHeader.clientId = rend->first;
                             }                           
-                            clients[lConnectAck.clientId] = matlabClient();
+                            clients[lAnswerHeader.clientId] = matlabClient();
                         }
                         else{
                             if(clients.count(lHeader.clientId) == 0){
                                 ROS_WARN("Client said he already has an ID, but this ID do not exist in memory!");
-                                clients[lConnectAck.clientId] = matlabClient();
+                                clients[lAnswerHeader.clientId] = matlabClient();
                                 // Envoyer message d'erreur au client?
                             }
-                            lConnectAck.clientId = lHeader.clientId;    // On fait "confiance" au client
+                            lAnswerHeader.clientId = lHeader.clientId;    // On fait "confiance" au client
                         }
 
                         memcpy(lAnswer, &lAnswerHeader, sizeof(msgHeader));
-                        memcpy(lAnswer+sizeof(msgHeader), &lConnectAck, sizeof(msgConnectAck));
-                        send(i, lAnswer, sizeof(msgHeader)+sizeof(msgConnectAck), 0);
+                        send(i, lAnswer, sizeof(msgHeader), 0);
                             
-                        clients[lConnectAck.clientId].compression = lConnect.compression;
+                        clients[lAnswerHeader.clientId].compression = lConnect.compression;
                         delete lAnswer;
                         break;
 

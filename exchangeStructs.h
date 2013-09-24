@@ -175,10 +175,6 @@ struct msgDigitalOut{
 } PACKEDSTRUCT;
 
 #define MSGID_CONNECT_ACK 0x10
-typedef struct msgConnectAck msgConnectAck;
-struct msgConnectAck{
-    uint32_t clientId;            /* Permet de conserver la connexion en cas de perte de reseau */
-} PACKEDSTRUCT;
 
 #define MSGID_ADC 0x20
 typedef struct msgAdc msgAdc;
