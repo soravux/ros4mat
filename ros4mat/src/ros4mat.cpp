@@ -914,18 +914,6 @@ int unsubscribeTo(msgUnsubscribe *info, matlabClient &in_client, bool deleteInMa
         }
         break;
 
-    case MSGID_BATTERY:
-        lParamsUnsetBattery.request.subscribe = false;
-        if(!ros::service::call("/D_Battery/params", lParamsUnsetBattery))
-        {
-            ROS_ERROR(
-                "Le service de parametrage de la batterie a renvoye une erreur (code %d) lors de la deconnexion.",
-                lParamsUnsetBattery.response.ret
-            );
-            return -1;
-        }
-        break;
-
     case MSGID_WEBCAM:
         lParamsUnsetCam.request.subscribe = false;
         if(!ros::service::call("/D_Cam/params", lParamsUnsetCam))
@@ -1153,7 +1141,6 @@ int main(int argc, char **argv)
     ProtocolMsgSize[MSGID_SERIAL_CMD] = sizeof(msgSerialCmd);
     ProtocolMsgSize[MSGID_ADC] = sizeof(msgAdc);
     ProtocolMsgSize[MSGID_IMU] = sizeof(msgImu);
-    ProtocolMsgSize[MSGID_BATTERY] = sizeof(msgBattery);
     ProtocolMsgSize[MSGID_GPS] = sizeof(msgGps);
     ProtocolMsgSize[MSGID_WEBCAM] = sizeof(msgCam);
     ProtocolMsgSize[MSGID_KINECT] = sizeof(msgCam);
