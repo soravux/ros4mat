@@ -148,17 +148,11 @@ void send_message(const char type, uint32_t qty, char *payload, uint32_t payload
     }
 
     msg = (char *) mxCalloc(1, sizeof(msgHeader) + payload_size);
-    lHeader.type = type;
-    lHeader.size = qty;
-    lHeader.error = 0;
-    lHeader.clientId = client_id;
-    lHeader.packetTimestamp = 0.0;
-
-    memcpy(
-        msg,
-        &lHeader,
-        sizeof(msgHeader)
-    );
+    ((msgHeader*)msg)->type = type;
+    ((msgHeader*)msg)->size = qty;
+    ((msgHeader*)msg)->error = 0;
+    ((msgHeader*)msg)->clientId = client_id;
+    ((msgHeader*)msg)->packetTimestamp = 0.0;
 
     if (payload_size > 0) {
         memcpy(
