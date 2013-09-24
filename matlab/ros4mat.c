@@ -1101,36 +1101,37 @@ void logico_kinect(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
     char            *msg = NULL;
     msgHeader       lHeader;
-    msgKinect       lCam;
+    msgKinect       lKinect;
     unsigned int    i, a, b, y, x;
     unsigned short  *out_data;
     double          *out_data_ts;
     unsigned int    sizeImg = 0;
 
-    /* TODO: Why not use lCam.channels? */
     unsigned int    cam_size[4] = { 0, 0, 4, 0 };
 
     if (initialized == 0) mexErrMsgTxt("No connection established.");
 
     lHeader = logico_send_data_request(MSGID_KINECT, &msg, sizeof(msgCam));
 
-    memcpy(&lCam, msg + sizeof(msgHeader), sizeof(msgCam));
+    memcpy(&lKinect, msg + sizeof(msgHeader), sizeof(msgCam));
 
-    cam_size[0] = lCam.height;
-    cam_size[1] = lCam.width;
+    cam_size[0] = lKinect.height;
+    cam_size[1] = lKinect.width;
     cam_size[3] = lHeader.size;
 
-    plhs[0] = mxCreateNumericArray(4, cam_size, mxUINT16_CLASS, mxREAL);    /* 16 bits */
-    plhs[1] = mxCreateDoubleMatrix(1, lHeader.size, mxREAL);
+    plhs[0] = mxCreateNumericArray(4, cam_size, mxUINT16_CLASS, mxREAL); /* RGB */
+    plhs[1] = mxCreateNumericArray(4, cam_size, mxUINT16_CLASS, mxREAL); /* Depth */
+    plhs[2] = mxCreateDoubleMatrix(1, lHeader.size, mxREAL);
     out_data = (unsigned short *) mxGetData(plhs[0]);
-    out_data_ts = (double *) mxGetPr(plhs[1]);
+    out_data = (unsigned short *) mxGetData(plhs[1]);
+    out_data_ts = (double *) mxGetPr(plhs[2]);
 
     for(i = 0; i < lHeader.size; i++)
     {
         /* On passe sur toutes les images */
-        memcpy(&lCam, msg + sizeof(msgHeader) + i * sizeof(msgCam), sizeof(msgCam));
+        memcpy(&lKinect, msg + sizeof(msgHeader) + i * sizeof(msgCam), sizeof(msgCam));
 
-        sizeImg = lCam.width * lCam.height * 3 + lCam.width * lCam.height * sizeof(uint16_t);
+        sizeImg = lKinect.width * lKinect.height * 3 + lKinect.width * lKinect.height * sizeof(uint16_t);
 
         /* Formattage pour Matlab */
         for(y = 0, b = 0; y < lCam.width * lCam.height * 4 - lCam.width * 4; b++, y += lCam.width * 4)
