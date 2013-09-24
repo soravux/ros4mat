@@ -371,47 +371,6 @@ void dataGpsReceived(const gps_common::GPSFix::ConstPtr &msg)
 }
 
 
-void dataBatteryReceived(const ros4mat::M_Battery::ConstPtr &msg)
-{
-    std::map<uint32_t, matlabClient>::iterator   lClientIt;
-    ROS_DEBUG("Reception de donnees de la batterie (1 sample)");
-
-    msgBattery  *lMsg = NULL;
-
-    for(lClientIt = clients.begin(); lClientIt != clients.end(); lClientIt++)
-    {
-        if((*lClientIt).second.subscribers.count(MSGID_BATTERY) == 0) continue;
-
-        ROS_DEBUG("Nouveau Client");
-        ROS_DEBUG("Buffer Size: %u", (unsigned int) (*lClientIt).second.subscribers[MSGID_BATTERY].second.size());
-        ROS_DEBUG("Max Buffer Size: %u", (*lClientIt).second.buffersInfo[MSGID_BATTERY]);
-        lMsg = new msgBattery;
-        lMsg->timestamp = msg->timestamp;
-        lMsg->currentDrained = msg->current;
-        for(unsigned int i = 0; i < 6; i++) lMsg->cellsVoltage[i] = msg->vcell[i];
-
-        lMsg->state = 0;
-        for(unsigned int i = 0; i < 8; i++) lMsg->state |= (msg->batteryState[7 - i]) ? 1 << i : 0;
-
-        // Add to the buffer
-        (*lClientIt).second.subscribers[MSGID_BATTERY].second.push((void *) lMsg);
-        lMsg = NULL;
-
-        // Pruning obsolete data
-        while (
-            (*lClientIt).second.subscribers[MSGID_BATTERY].second.size() >
-                (*lClientIt).second.buffersInfo[MSGID_BATTERY]
-        )
-        {
-            ROS_DEBUG("PRUNING BATTERY DATA");
-            delete(msgBattery *) ((*lClientIt).second.subscribers[MSGID_BATTERY].second.front());
-            (*lClientIt).second.subscribers[MSGID_BATTERY].second.pop();
-        }
-    }
-
-    ROS_DEBUG("Fin de la transmission Battery\n\n");
-}
-
 
 void dataComputerReceived(const ros4mat::M_Computer::ConstPtr &msg)
 {
@@ -1802,34 +1761,6 @@ int main(int argc, char **argv)
                         break;
 
                     // TODO: Unify all these together
-                    case MSGID_BATTERY:
-                        ROS_DEBUG("Received Battery");
-                        lAnswerHeader.type = lHeader.type;
-                        lAnswerHeader.size = clients[lHeader.clientId].subscribers[lHeader.type].second.size();
-                        lAnswerHeader.error = 0;
-                        lAnswerHeader.packetTimestamp = ros::Time::now().toSec();
-
-                        lAnswer = new char[lAnswerHeader.size * sizeof(msgBattery)];
-                        for(unsigned int k = 0; k < lAnswerHeader.size; k++)
-                        {
-                            memcpy(
-                                lAnswer + k * sizeof(msgBattery),
-                                clients[lHeader.clientId].subscribers[lHeader.type].second.front(),
-                                sizeof(msgBattery)
-                            );
-                            delete (msgBattery *) clients[lHeader.clientId].subscribers[lHeader.type].second.front();
-                            clients[lHeader.clientId].subscribers[lHeader.type].second.pop();
-                        }
-
-                        sendDataToClient(
-                            i,
-                            &lAnswerHeader,
-                            lAnswer,
-                            lAnswerHeader.size * sizeof(msgBattery),
-                            clients[lHeader.clientId].compression
-                        );
-                        delete lAnswer;
-                        break;
 
                     case MSGID_GPS:
                         ROS_DEBUG("Received GPS");
