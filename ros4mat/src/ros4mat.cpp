@@ -81,18 +81,23 @@ struct msgCamInternal
     unsigned char   channels;
     uint32_t        sizeData;
     char            *cptr;      /* Keeps the image buffer address */
+    char            compressionType;
     double          timestamp;  /* Image acquisition timestamp */
 };
 
 typedef struct msgStereoCamInternal msgStereoCamInternal;
 struct msgStereoCamInternal
 {
-    uint32_t        width;
-    uint32_t        height;
+    uint32_t        width_L;
+    uint32_t        width_R;
+    uint32_t        height_L;
+    uint32_t        height_R;
     unsigned char   channels;
-    uint32_t        sizeData;
+    uint32_t        sizeData_L;
+    uint32_t        sizeData_R;
     char            *cptr_L;    /* Keeps the image buffer address (left img) */
     char            *cptr_R;    /* Keeps the image buffer address (right img) */
+    char            compressionType;
     double          timestamp;  /* Image acquisition timestamp */
 };
 
@@ -110,6 +115,13 @@ struct msgHokuyoInternal
     char        *cptr;          /* Keeps the ranges buffer address */
 };
 
+typedef struct msgKinectInternal    msgKinectInternal;
+struct msgKinectInternal
+{
+    msgCamInternal infoDepth;
+    msgCamInternal infoRGB;
+};
+
 typedef struct matlabClient matlabClient;
 struct matlabClient
 {
@@ -123,7 +135,7 @@ std::map<uint32_t, matlabClient> clients;    // uint = unique client id
 
 void dataAdcReceived(const ros4mat::M_ADC::ConstPtr &msg)
 {
-    std::map<int, matlabClient>::iterator   lClientIt;
+    std::map<uint32_t, matlabClient>::iterator   lClientIt;
     ROS_DEBUG("Reception de donnees de l'ADC (%d samples)", (int) msg->timestamps.size());
 
     msgAdc  *lMsg = NULL;
@@ -161,7 +173,7 @@ void dataAdcReceived(const ros4mat::M_ADC::ConstPtr &msg)
 
 void dataImuReceived(const ros4mat::M_IMU::ConstPtr &msg)
 {
-    std::map<int, matlabClient>::iterator   lClientIt;
+    std::map<uint32_t, matlabClient>::iterator   lClientIt;
     ROS_DEBUG("Reception de donnees de l'IMU (%d samples)", (int) msg->timestamps.size());
 
     msgImu  *lMsg = NULL;
@@ -207,7 +219,7 @@ void dataImuReceived(const ros4mat::M_IMU::ConstPtr &msg)
 void dataCamReceived(const sensor_msgs::Image::ConstPtr &msg)
 {
     char                                    *bufferImg;
-    std::map<int, matlabClient>::iterator   lClientIt;
+    std::map<uint32_t, matlabClient>::iterator   lClientIt;
     msgCamInternal                          *lMsg = NULL;
     for(lClientIt = clients.begin(); lClientIt != clients.end(); lClientIt++)
     {
@@ -249,7 +261,7 @@ void dataCamReceived(const sensor_msgs::Image::ConstPtr &msg)
 void dataStereoCamReceived(const ros4mat::M_StereoCam::ConstPtr &image)
 {
     char                                    *bufferImg_L, *bufferImg_R;
-    std::map<int, matlabClient>::iterator   lClientIt;
+    std::map<uint32_t, matlabClient>::iterator   lClientIt;
     msgStereoCamInternal                    *lMsg = NULL;
 
     for(lClientIt = clients.begin(); lClientIt != clients.end(); lClientIt++)
@@ -257,17 +269,21 @@ void dataStereoCamReceived(const ros4mat::M_StereoCam::ConstPtr &image)
         if((*lClientIt).second.subscribers.count(MSGID_WEBCAM_STEREO) == 0) continue;
         lMsg = new msgStereoCamInternal;
 
+        // TODO : Differencier proprietes de l'image gauche et droite
         lMsg->timestamp = image->timestamp;
-        lMsg->width = image->width;
-        lMsg->height = image->height;
+        lMsg->width_L = image->width;
+        lMsg->width_R = image->width;
+        lMsg->height_L = image->height;
+        lMsg->height_R = image->height;
         lMsg->channels = 3;
-        lMsg->sizeData = (image->image_left).size();
-        if(lMsg->sizeData != lMsg->width * lMsg->height * 3)
+        lMsg->sizeData_L = (image->image_left).size();
+        lMsg->sizeData_R = (image->image_left).size();
+        if(lMsg->sizeData_L != lMsg->width_L * lMsg->height_L * 3)
         {
             ROS_WARN(
                 "Incoherence de taille des buffers de camera (taille prevue : %d, obtenue : %d",
-                lMsg->width * lMsg->height * 3,
-                lMsg->sizeData
+                lMsg->width_L * lMsg->height_L * 3,
+                lMsg->sizeData_L
             );
         }
 
@@ -280,9 +296,9 @@ void dataStereoCamReceived(const ros4mat::M_StereoCam::ConstPtr &image)
             );
         }
 
-        bufferImg_L = new char[lMsg->sizeData];
-        bufferImg_R = new char[lMsg->sizeData];
-        for(unsigned int i = 0; i < lMsg->sizeData; i++)
+        bufferImg_L = new char[lMsg->sizeData_L];
+        bufferImg_R = new char[lMsg->sizeData_R];
+        for(unsigned int i = 0; i < lMsg->sizeData_L; i++)
         {
             bufferImg_L[i] = image->image_left[i];
             bufferImg_R[i] = image->image_right[i];
@@ -310,7 +326,7 @@ void dataStereoCamReceived(const ros4mat::M_StereoCam::ConstPtr &image)
 
 void dataGpsReceived(const gps_common::GPSFix::ConstPtr &msg)
 {
-    std::map<int, matlabClient>::iterator   lClientIt;
+    std::map<uint32_t, matlabClient>::iterator   lClientIt;
     ROS_DEBUG("Reception de donnees du GPS (1 sample)");
 
     msgGps  *lMsg = NULL;
@@ -357,7 +373,7 @@ void dataGpsReceived(const gps_common::GPSFix::ConstPtr &msg)
 
 void dataBatteryReceived(const ros4mat::M_Battery::ConstPtr &msg)
 {
-    std::map<int, matlabClient>::iterator   lClientIt;
+    std::map<uint32_t, matlabClient>::iterator   lClientIt;
     ROS_DEBUG("Reception de donnees de la batterie (1 sample)");
 
     msgBattery  *lMsg = NULL;
@@ -399,7 +415,7 @@ void dataBatteryReceived(const ros4mat::M_Battery::ConstPtr &msg)
 
 void dataComputerReceived(const ros4mat::M_Computer::ConstPtr &msg)
 {
-    std::map<int, matlabClient>::iterator   lClientIt;
+    std::map<uint32_t, matlabClient>::iterator   lClientIt;
     ROS_DEBUG("Reception de statistiques sur l'ordinateur (1 sample)");
 
     msgComputer *lMsg = NULL;
@@ -440,7 +456,7 @@ void dataComputerReceived(const ros4mat::M_Computer::ConstPtr &msg)
 void dataHokuyoReceived(const sensor_msgs::LaserScan::ConstPtr &msg)
 {
     char                                    *bufferRanges;
-    std::map<int, matlabClient>::iterator   lClientIt;
+    std::map<uint32_t, matlabClient>::iterator   lClientIt;
     msgHokuyoInternal                       *lMsg = NULL;
 
     for(lClientIt = clients.begin(); lClientIt != clients.end(); lClientIt++)
@@ -488,7 +504,7 @@ void dataHokuyoReceived(const sensor_msgs::LaserScan::ConstPtr &msg)
 void dataKinectDepthReceived(const sensor_msgs::Image::ConstPtr &msg)
 {
     char                                    *bufferImg;
-    std::map<int, matlabClient>::iterator   lClientIt;
+    std::map<uint32_t, matlabClient>::iterator   lClientIt;
     msgCamInternal                          *lMsg = NULL;
 
     for(lClientIt = clients.begin(); lClientIt != clients.end(); lClientIt++)
@@ -539,7 +555,7 @@ void dataKinectDepthReceived(const sensor_msgs::Image::ConstPtr &msg)
 void dataKinectRGBReceived(const sensor_msgs::Image::ConstPtr &msg)
 {
     char                                    *bufferImg;
-    std::map<int, matlabClient>::iterator   lClientIt;
+    std::map<uint32_t, matlabClient>::iterator   lClientIt;
     msgCamInternal                          *lMsg = NULL;
 
     for(lClientIt = clients.begin(); lClientIt != clients.end(); lClientIt++)
@@ -589,12 +605,12 @@ void dataKinectRGBReceived(const sensor_msgs::Image::ConstPtr &msg)
 }
 
 
+// subscribeTo(lSubscribe.typeCapteur, lSubscribe.bufferSize, bufferSubscribe, lSubscribe.silentSubscribe == 1, nodeRos, clients[lHeader.clientId]);
 int subscribeTo(char typeCapteur, uint32_t bufferSize, char* info, bool subOnly, ros::NodeHandle nodeRos, matlabClient &in_client)
 {
     /* TODO: ADD Buffer toward publishers*/
     /* C'est quoi ce TODO la?? */
     ros::Subscriber         sub;
-    bool                    subOnly = false;
 
     std::stringstream       tmpDevice;
 
@@ -627,12 +643,12 @@ int subscribeTo(char typeCapteur, uint32_t bufferSize, char* info, bool subOnly,
                 // TODO : CHECK if we cannot connect anyway
                 ROS_WARN(
                     "Aucun client actuellement connecte au capteur %02X, inscription seulement ignoree",
-                    info->typeCapteur
+                    typeCapteur
                 );
                 return -1;
             }
 
-            info->bufferSize = bufferNewSize;
+            bufferSize = bufferNewSize;
             ROS_INFO(
                 "Pas de taille de buffer envoyee, utilisation de la taille du precedent subscriber (%d echantillons)",
                 bufferNewSize
@@ -642,28 +658,38 @@ int subscribeTo(char typeCapteur, uint32_t bufferSize, char* info, bool subOnly,
 
 
     ROS_INFO(
-        "Reception d'une demande d'inscription pour le capteur %02X.\nFrequence d'acquisition : %i\nFrequence de polling : %i\nTaille du buffer circulaire : %i",
-        info->typeCapteur,
-        info->freqAcquisition,
-        info->freqSend,
-        info->bufferSize
+        "Reception d'une demande d'inscription pour le capteur %02X.\nTaille du buffer circulaire : %i",
+        typeCapteur,
+        bufferSize
     );
 
 
-    switch(info->typeCapteur)
+    paramsAdc lStructAdc;
+    paramsImu lStructImu;
+    paramsGps lStructGps;
+    paramsCamera lStructCamera;
+    paramsStereoCam lStructStereoCam;
+    paramsKinect lStructKinect;
+    paramsHokuyo lStructHokuyo;
+    paramsComputer lStructComputer;
+
+    switch(typeCapteur)
     {
     case MSGID_ADC:
+
+        memcpy(info, &lStructAdc, sizeof(lStructAdc));
+
         if(!subOnly)
         {
             for(unsigned int i = 0; i < 8; i++)
             {
-                lParamsSetAdc.request.adcChannels[i] = (info->paramSupp & (1 << i));
+                lParamsSetAdc.request.adcChannels[i] = (lStructAdc.channels & (1 << i));
                 ROS_INFO("Channel: %i, Val: %u", i, lParamsSetAdc.request.adcChannels[i]);
             }
 
-            lParamsSetAdc.request.adcFreqAcq = info->freqAcquisition;
-            lParamsSetAdc.request.adcFreqPoll = info->freqSend;
-            lParamsSetAdc.request.adcBufferSize = info->bufferSize;
+            lParamsSetAdc.request.adcFreqAcq = lStructAdc.freqAcquisition;
+            lParamsSetAdc.request.adcFreqPoll = lStructAdc.freqSend;
+            lParamsSetAdc.request.adcBufferSize = bufferSize;
             lParamsSetAdc.request.subscribe = true;
             if(!ros::service::call("/D_ADC/params", lParamsSetAdc))
             {
@@ -699,6 +725,7 @@ int subscribeTo(char typeCapteur, uint32_t bufferSize, char* info, bool subOnly,
         break;
 
     case MSGID_IMU:
+        memcpy(info, &lStructImu, sizeof(lStructImu));
         if(subOnly)
         {
             lParamsSetImu.request.imuFreqAcq = 0;
@@ -716,9 +743,9 @@ int subscribeTo(char typeCapteur, uint32_t bufferSize, char* info, bool subOnly,
         }
         else
         {
-            lParamsSetImu.request.imuFreqAcq = info->freqAcquisition;
-            lParamsSetImu.request.imuFreqPoll = info->freqSend;
-            lParamsSetImu.request.imuBufferSize = info->bufferSize;     // ?!?
+            lParamsSetImu.request.imuFreqAcq = lStructImu.freqAcquisition;
+            lParamsSetImu.request.imuFreqPoll = lStructImu.freqSend;
+            lParamsSetImu.request.imuBufferSize = bufferSize;     // ?!?
             lParamsSetImu.request.subscribe = true;
             if(!ros::service::call("/D_IMU/params", lParamsSetImu))
             {
@@ -733,41 +760,6 @@ int subscribeTo(char typeCapteur, uint32_t bufferSize, char* info, bool subOnly,
         sub = nodeRos.subscribe("/D_IMU/data", 2 * SOCKET_SEND_TIMEOUT_SEC * 250, dataImuReceived);
         break;
 
-    case MSGID_BATTERY:
-        if(subOnly)
-        {
-            lParamsSetBat.request.subscribe = true;
-            lParamsSetBat.request.battFreqAcq = 0;
-            lParamsSetBat.request.battBufferSize = 0;                   // ?!?
-            lParamsSetBat.request.sendCmdChargeDecharge = false;
-            if(!ros::service::call("/D_Battery/params", lParamsSetBat))
-            {
-                ROS_ERROR(
-                    "Le service de parametrage de la batterie a renvoye une erreur (code %d).",
-                    lParamsSetBat.response.ret
-                );
-                return -1;
-            }
-        }
-        else
-        {
-            lParamsSetBat.request.subscribe = true;
-            lParamsSetBat.request.battFreqAcq = info->freqAcquisition;
-            lParamsSetBat.request.battBufferSize = info->bufferSize;    // ?!?
-            lParamsSetBat.request.sendCmdChargeDecharge = false;
-            if(!ros::service::call("/D_Battery/params", lParamsSetBat))
-            {
-                ROS_ERROR(
-                    "Le service de parametrage de la batterie a renvoye une erreur (code %d).",
-                    lParamsSetBat.response.ret
-                );
-                return -1;
-            }
-        }
-
-        sub = nodeRos.subscribe("/D_Battery/data", 2 * SOCKET_SEND_TIMEOUT_SEC * 10, dataBatteryReceived);
-        break;
-
     case MSGID_GPS:
         sub = nodeRos.subscribe("/extended_fix", 2 * SOCKET_SEND_TIMEOUT_SEC * 10, dataGpsReceived);
         break;
@@ -777,6 +769,7 @@ int subscribeTo(char typeCapteur, uint32_t bufferSize, char* info, bool subOnly,
         break;
 
     case MSGID_WEBCAM:
+        memcpy(info, &lStructCamera, sizeof(lStructCamera));
         if(subOnly)
         {
             lParamsSetCam.request.subscribe = true;
@@ -798,12 +791,12 @@ int subscribeTo(char typeCapteur, uint32_t bufferSize, char* info, bool subOnly,
         {
             lParamsSetCam.request.subscribe = true;
             tmpDevice << "/dev/video";
-            tmpDevice << (unsigned int) (info->paramSupp2);
+            tmpDevice << (unsigned int) (lStructCamera.id);
 
             lParamsSetCam.request.device = tmpDevice.str();
-            lParamsSetCam.request.width = (unsigned int) (info->paramSupp) * 20;
-            lParamsSetCam.request.height = lParamsSetCam.request.width * 3 / 4;
-            lParamsSetCam.request.fps = info->freqAcquisition;
+            lParamsSetCam.request.width = lStructCamera.width;
+            lParamsSetCam.request.height = lStructCamera.height;
+            lParamsSetCam.request.fps = lStructCamera.fps;
             ROS_INFO("Envoi de la requete au service");
             if(!ros::service::call("/D_Cam/params", lParamsSetCam))
             {
@@ -815,12 +808,11 @@ int subscribeTo(char typeCapteur, uint32_t bufferSize, char* info, bool subOnly,
             }
         }
 
-        image_transport::ImageTransport it(nodeRos);
-        image_transport::Subscriber sub = it.subscribe("camera/image", 1, imageCallback);
         sub = nodeRos.subscribe("/image_raw", 2 * SOCKET_SEND_TIMEOUT_SEC * 30, dataCamReceived);
         break;
 
     case MSGID_WEBCAM_STEREO:
+        memcpy(info, &lStructStereoCam, sizeof(lStructStereoCam));
         if(subOnly)
         {
             lParamsSetStereoCam.request.subscribe = true;
@@ -843,16 +835,16 @@ int subscribeTo(char typeCapteur, uint32_t bufferSize, char* info, bool subOnly,
         {
             lParamsSetStereoCam.request.subscribe = true;
             tmpDevice << "/dev/video";
-            tmpDevice << (unsigned int) (info->paramSupp2) % 10;
+            tmpDevice << (unsigned int) lStructStereoCam.idLeft;
             lParamsSetStereoCam.request.device_L = tmpDevice.str();
 
             tmpDevice.str("");
             tmpDevice << "/dev/video";
-            tmpDevice << (unsigned int) (info->paramSupp2) / 10;
+            tmpDevice << (unsigned int) lStructStereoCam.idRight;
             lParamsSetStereoCam.request.device_R = tmpDevice.str();
-            lParamsSetStereoCam.request.width = (unsigned int) (info->paramSupp) * 20;
-            lParamsSetStereoCam.request.height = lParamsSetStereoCam.request.width * 3 / 4;
-            lParamsSetStereoCam.request.fps = info->freqAcquisition;
+            lParamsSetStereoCam.request.width = lStructStereoCam.width;
+            lParamsSetStereoCam.request.height = lStructStereoCam.height;
+            lParamsSetStereoCam.request.fps = lStructStereoCam.fps;
             ROS_INFO("Envoi de la requete au service");
             if(!ros::service::call("/D_CamStereo/params", lParamsSetStereoCam))
             {
@@ -867,18 +859,14 @@ int subscribeTo(char typeCapteur, uint32_t bufferSize, char* info, bool subOnly,
         sub = nodeRos.subscribe("/D_CamStereo/data", 2 * SOCKET_SEND_TIMEOUT_SEC * 30, dataStereoCamReceived);
         break;
 
-    case MSGID_KINECT_DEPTH:
-        // Published directly by driver only when ~depth_registration is true (OpenNI registration enabled).
-        // On a quelque chose a faire pour activer depth_registration?
-        sub = nodeRos.subscribe("/depth/image_raw", 2 * SOCKET_SEND_TIMEOUT_SEC * 10, dataKinectDepthReceived);
-        break;
-
     case MSGID_KINECT:
+        memcpy(info, &lStructKinect, sizeof(lStructKinect));
         sub = nodeRos.subscribe("/depth/image_raw", 2 * SOCKET_SEND_TIMEOUT_SEC * 10, dataKinectDepthReceived);
         sub = nodeRos.subscribe("/rgb/image_raw", 2 * SOCKET_SEND_TIMEOUT_SEC * 10, dataKinectRGBReceived);
         break;
 
     case MSGID_COMPUTER:
+        memcpy(info, &lStructComputer, sizeof(lStructComputer));
         if(subOnly)
         {
             lParamsSetComputer.request.subscribe = true;
@@ -896,8 +884,8 @@ int subscribeTo(char typeCapteur, uint32_t bufferSize, char* info, bool subOnly,
         else
         {
             lParamsSetComputer.request.subscribe = true;
-            lParamsSetComputer.request.freqAcq = info->freqAcquisition;
-            lParamsSetComputer.request.bufferSize = info->bufferSize;
+            lParamsSetComputer.request.freqAcq = lStructComputer.freqAcquisition;
+            lParamsSetComputer.request.bufferSize = bufferSize;
             if(!ros::service::call("/D_ComputerInfo/params", lParamsSetComputer))
             {
                 ROS_ERROR(
@@ -912,12 +900,12 @@ int subscribeTo(char typeCapteur, uint32_t bufferSize, char* info, bool subOnly,
         break;
 
     default:
-        ROS_ERROR("Demande d'inscription a un type de capteur inconnu (%X) sera ignoree!", info->typeCapteur);
+        ROS_ERROR("Demande d'inscription a un type de capteur inconnu (%X) sera ignoree!", typeCapteur);
         return 1;
     }
 
-    in_client.subscribers[info->typeCapteur].first = sub;
-    in_client.buffersInfo[info->typeCapteur] = info->bufferSize;
+    in_client.subscribers[typeCapteur].first = sub;
+    in_client.buffersInfo[typeCapteur] = bufferSize;
 
     return 0;
 }
@@ -1066,7 +1054,7 @@ int unsubscribeAll(int in_client)
 }
 
 
-int sendSerialCmd(msgSerialCmd *info, char* port, char* data, matlabClient &in_client, char *answer, char &answerSize)
+int sendSerialCmd(msgSerialCmd *info, char* port, char* data, matlabClient &in_client, char **answer, uint32_t &answerSize)
 {
     ros4mat::S_Serial   lParams;
     ROS_INFO(
@@ -1090,16 +1078,16 @@ int sendSerialCmd(msgSerialCmd *info, char* port, char* data, matlabClient &in_c
     lParams.request.readTimeoutMicro = info->readTimeoutMicro;
     lParams.request.closeAfterComm = info->closeAfterComm;
     for(unsigned int i = 0; i < info->sendLength; i++)                  // TODO : OPTIMIZE
-        lParams.request.sendBuffer.push_back(info->data[i]);
+        lParams.request.sendBuffer.push_back(data[i]);
     ROS_INFO("Serial OK, sending data");
     if(!ros::service::call("/D_Serial/serialCommand", lParams))
     {
         ROS_ERROR("L'envoi de la commande serie a renvoye une erreur");
         return MSGID_SERIAL_ANS_NO_OPEN;
     }
-    answer = new char[lParams.response.receiveBufferLength];
+    *answer = new char[lParams.response.receiveBufferLength];
     for(unsigned int i = 0; i < lParams.response.receiveBufferLength; i++)  // TODO : OPTIMIZE
-        answer[i] = lParams.response.receiveBuffer[i];
+        (*answer)[i] = lParams.response.receiveBuffer[i];
     answerSize = lParams.response.receiveBufferLength;
 
     return MSGID_SERIAL_ANS_OK;
@@ -1445,8 +1433,20 @@ int main(int argc, char **argv)
                     msgSerialCmd    lSerialCmd;
                     msgSerialAns    lSerialAns;
                     char            *lRetour;
-                    uint32_t            lRetourSize = 0;
+                    uint32_t        lRetourSize = 0;
                     char            *bufferSubscribe, *bufferData, *bufferPort;
+
+                    if(lHeader.type & 0xF0 && clients[lHeader.clientId].subscribers[lHeader.type].second.size() == 0)
+                    {
+                        // No data to send
+                        ROS_INFO("No data to send");
+                        lAnswerHeader.size = 0;
+                        lAnswerHeader.error = 0;
+                        lAnswer = new char[sizeof(msgHeader)];
+                        memcpy(lAnswer, &lAnswerHeader, sizeof(msgHeader));
+                        send(i, lAnswer, sizeof(msgHeader), 0);
+                    }
+
                     switch(lHeader.type)
                     {
                     case MSGID_CONNECT:
@@ -1454,12 +1454,9 @@ int main(int argc, char **argv)
                         memcpy(&lConnect, msg, sizeof(msgConnect));
                         lAnswer = new char[sizeof(msgHeader) + sizeof(msgConnectAck)];
                         lAnswerHeader.type = MSGID_CONNECT_ACK;
-                        lAnswerHeader.info = 0x00;
                         lAnswerHeader.error = 0;
                         lAnswerHeader.size = 1;
                         lAnswerHeader.packetTimestamp = 0.0;
-
-                        lConnectAck.accept = 1;
 
                         if(lHeader.clientId == 0){
                             // Le client demande un ID (premiere connexion)
@@ -1506,7 +1503,7 @@ int main(int argc, char **argv)
 
                         bufferSubscribe = new char[lSubscribe.paramsSize];
                         memcpy(bufferSubscribe, msg+sizeof(msgSubscribe), lSubscribe.paramsSize);
-                        subscribeTo(lSubscribe.typeCapteur, bufferSubscribe, lSubscribe.silentSubscribe == 1, nodeRos, clients[lHeader.clientId]);
+                        subscribeTo(lSubscribe.typeCapteur, lSubscribe.bufferSize, bufferSubscribe, lSubscribe.silentSubscribe == 1, nodeRos, clients[lHeader.clientId]);
                         delete[] bufferSubscribe;
                         break;
 
@@ -1531,33 +1528,31 @@ int main(int argc, char **argv)
                             lRetour = new char[lSerialCmd.readLength];
                         }
 
-                        lSerialAns.status = sendSerialCmd(&lSerialCmd, bufferData, lSerialCmd.sendLength, 
-                                                            lRetour, lRetourSize, clients[lHeader.clientId]);
+                        // int sendSerialCmd(msgSerialCmd *info, char* port, char* data, matlabClient &in_client, char **answer, char &answerSize)
+                        lSerialAns.status = sendSerialCmd(&lSerialCmd, bufferPort, bufferData, clients[lHeader.clientId],
+                                                            &lRetour, lRetourSize);
 
                         lAnswerHeader.type = MSGID_SERIAL_ANS;
-                        lAnswerHeader.info = 0x00;
                         lAnswerHeader.error = 0;
                         lAnswerHeader.size = 1;
                         lAnswerHeader.packetTimestamp = 0.0;
                         lAnswerHeader.compressSize = sizeof(msgSerialAns) + lRetourSize;
                         lAnswerHeader.uncompressSize = sizeof(msgSerialAns) + lRetourSize;
-                        // TODO : Ajouter possibilite de compression
-                        lAnswerHeader.compressionType = MSGID_HEADER_NOCOMPRESSION;
                         lSerialAns.dataLength = lRetourSize;
 
+                        lAnswer = new char[sizeof(msgSerialAns) + lRetourSize];
+                        memcpy(lAnswer, &lSerialAns, sizeof(msgSerialAns));
+                        memcpy(lAnswer + sizeof(msgSerialAns), lRetour, lRetourSize);
 
-                        lAnswer = new char[sizeof(msgHeader) + sizeof(msgSerialAns) + lRetourSize];
-                        memcpy(lAnswer, &lAnswerHeader, sizeof(msgHeader));
-                        memcpy(lAnswer + sizeof(msgHeader), &lSerialAns, sizeof(msgSerialAns));
-                        memcpy(lAnswer + sizeof(msgHeader) + sizeof(msgSerialAns), lRetour, lRetourSize);
-
-                        send(i, lAnswer, sizeof(msgHeader) + sizeof(msgSerialAns) + lRetourSize, 0);
+                        sendDataToClient(i, &lAnswerHeader, lAnswer, sizeof(msgSerialAns) + lRetourSize, clients[lHeader.clientId].compression);
 
                         delete[] bufferPort;
                         if(lSerialCmd.sendLength > 0)
                             delete[] bufferData;
                         if(lSerialCmd.readLength > 0)
                             delete[] lRetour;
+
+                        delete lAnswer;
                         break;
 
                     case MSGID_DOUT_CTRL:
@@ -1567,210 +1562,201 @@ int main(int argc, char **argv)
                         break;
 
                     case MSGID_WEBCAM:
-                    case MSGID_KINECT:
-                    case MSGID_KINECT_DEPTH:
-                        if(lHeader.type == MSGID_KINECT_DEPTH)
-                            ROS_INFO("Received Kinect Depth");
-                        else if(lHeader.type == MSGID_KINECT)
-                            ROS_INFO("Received Kinect");
-                        else
-                            ROS_INFO("Received Webcam");
-
-                        lAnswerHeader.type = lHeader.type;
-                        lAnswerHeader.info = 0x00;
-                        lAnswerHeader.packetTimestamp = ros::Time::now().toSec();
-                        if(clients[i].subscribers[lHeader.type].second.size() == 0)
                         {
-                            // No image to send
-                            ROS_INFO("No data to send");
-                            lAnswerHeader.size = 0;
-                            lAnswer = new char[sizeof(msgHeader)];
-                            memcpy(lAnswer, &lAnswerHeader, sizeof(msgHeader));
-                            send(i, lAnswer, sizeof(msgHeader), 0);
-                        }
-                        else
-                        {
-                            /* Sending protocol: We send an msgHeader containing the number of images 
-                                 * contained in the size variable and their resolution (X multiplied by 20,
-                                 * as the subscribe protocol).
-                                 * Then, we send EVERY imgStruct in one shot, then the images having the 
-                                 * same size */
-                            nbrImgSend = clients[i].subscribers[lHeader.type].second.size();
+                            lAnswerHeader.type = MSGID_WEBCAM;
+                            lAnswerHeader.error = 0;
+                            lAnswerHeader.packetTimestamp = ros::Time::now().toSec();
 
-                            int imgSizeBytes =
-                                ((msgCamInternal *) clients[i].subscribers[lHeader.type].second.front())->sizeData;
-
-                            int sendSize = nbrImgSend * sizeof(msgCam) + nbrImgSend * imgSizeBytes;
-
+                            nbrImgSend = clients[lHeader.clientId].subscribers[MSGID_WEBCAM].second.size();
                             lAnswerHeader.size = nbrImgSend;
-                            lAnswerHeader.info =
-                                (((msgCamInternal *) clients[i].subscribers[lHeader.type].second.front())->width) /
-                                20;
 
-                            lAnswer = new char[sendSize];
-
+                            // malloc because we use realloc subsequently
+                            lRetourSize = nbrImgSend * sizeof(msgCam);
+                            lAnswer = (char*)malloc(lRetourSize);
+                            
                             msgCam          lCamData;
                             msgCamInternal  *currentCamStruct = 0;
-                            for(unsigned int k = 0; k < lAnswerHeader.size; k++)
-                            {
+                            for(unsigned int k = 0; k < lAnswerHeader.size; k++){
                                 // msgCam struct copy at the packet beginning
-                                currentCamStruct = (msgCamInternal *) clients[i].subscribers[lHeader.type].second.front();
+                                currentCamStruct = (msgCamInternal *) clients[lHeader.clientId].subscribers[MSGID_WEBCAM].second.front();
                                 lCamData.width = currentCamStruct->width;
                                 lCamData.height = currentCamStruct->height;
                                 lCamData.channels = currentCamStruct->channels;
                                 lCamData.sizeData = currentCamStruct->sizeData;
+                                lCamData.compressionType = currentCamStruct->compressionType;
                                 lCamData.timestamp = currentCamStruct->timestamp;
 
                                 // Image subheader copy
                                 memcpy(lAnswer + k * sizeof(msgCam), &lCamData, sizeof(msgCam));
 
-                                // Image copy
-                                if(lHeader.type == MSGID_KINECT)
-                                {
-                                    memcpy(
-                                        lAnswer + nbrImgSend * sizeof(msgCam) + k * imgSizeBytes,
-                                        currentCamStruct->cptr,
-                                        imgSizeBytes - 640 * 480 * sizeof(uint16_t)
-                                    );
-                                    memcpy(
-                                        lAnswer + nbrImgSend * sizeof(msgCam) + k * imgSizeBytes,
-                                        ((msgCamInternal *) clients[i].subscribers[MSGID_KINECT_DEPTH].second.front())->cptr,
-                                        640 * 480 * sizeof(uint16_t)
-                                    );
-                                }
-                                else
-                                {
-                                    memcpy(
-                                        lAnswer + nbrImgSend * sizeof(msgCam) + k * imgSizeBytes,
-                                        currentCamStruct->cptr,
-                                        imgSizeBytes
-                                    );
-                                }
+                                // On realloc pour chaque image car elles peuvent etre de taille differente
+                                lRetourSize += currentCamStruct->sizeData;
+                                lAnswer = (char*)realloc(lAnswer, lRetourSize);
 
-                                // Buffer pruning
+                                memcpy(lAnswer + lRetourSize - currentCamStruct->sizeData, currentCamStruct->cptr, currentCamStruct->sizeData);
+
+                                 // Buffer pruning
                                 delete[] currentCamStruct->cptr;
                                 delete currentCamStruct;
-                                clients[i].subscribers[lHeader.type].second.pop();
-                                if(lHeader.type == MSGID_KINECT)
-                                {
-                                    delete[]((msgCamInternal *) clients[i].subscribers[MSGID_KINECT_DEPTH].second.front())->cptr;
-                                    delete (msgCamInternal *) clients[i].subscribers[MSGID_KINECT_DEPTH].second.front();
-                                    clients[i].subscribers[MSGID_KINECT_DEPTH].second.pop();
+                                clients[lHeader.clientId].subscribers[lHeader.type].second.pop();
                                 }
-                            }
+                        
+                            ROS_INFO("Send webcam data: %X (size = %i)", lAnswerHeader.type, lRetourSize);
+                            sendDataToClient(i, &lAnswerHeader, lAnswer, lRetourSize, clients[lHeader.clientId].compression);
 
-                            ROS_INFO("Send webcam data: %X (size = %i)", lAnswerHeader.type, sendSize);
-                            sendDataToClient(i, &lAnswerHeader, lAnswer, sendSize, clients[i].compression);
+                            free(lAnswer);
                         }
-
-                        delete lAnswer;
                         break;
 
                     case MSGID_WEBCAM_STEREO:
-                        ROS_INFO("Received Webcam Stereo");
-
-                        lAnswerHeader.type = MSGID_WEBCAM_STEREO;
-                        lAnswerHeader.info = 0x00;
-                        lAnswerHeader.packetTimestamp = ros::Time::now().toSec();
-
-                        if(clients[i].subscribers[MSGID_WEBCAM_STEREO].second.size() == 0)
                         {
-                            // No image to send
-                            ROS_INFO("No data to send");
-                            lAnswerHeader.size = 0;
-                            lAnswer = new char[sizeof(msgHeader)];
-                            memcpy(lAnswer, &lAnswerHeader, sizeof(msgHeader));
-                            send(i, lAnswer, sizeof(msgHeader), 0);
-                        }
-                        else
-                        {
-                            /* Sending protocol: We send an msgHeader containing the number of images 
-                                 * contained in the size variable and their resolution (X multiplied by 20,
-                                 * as the subscribe protocol).
-                                 * Then, we send EVERY imgStruct in one shot, then the images having the 
-                                 * same size. The left and right images are alternated (one left, one right, one left, ...)
-                                 * We send two imgStruct per set of two images */
-                            nbrImgSend = clients[i].subscribers[MSGID_WEBCAM_STEREO].second.size();
+                            lAnswerHeader.type = MSGID_WEBCAM_STEREO;
+                            lAnswerHeader.error = 0;
+                            lAnswerHeader.packetTimestamp = ros::Time::now().toSec();
 
-                            int imgSizeBytes =
-                                ((msgStereoCamInternal *) clients[i].subscribers[MSGID_WEBCAM_STEREO].second.front())->sizeData;
-
-                            int sendSize = nbrImgSend * sizeof(msgCam) + nbrImgSend * imgSizeBytes * 2; // *2 because stereo
+                            nbrImgSend = clients[lHeader.clientId].subscribers[MSGID_WEBCAM_STEREO].second.size();
                             lAnswerHeader.size = nbrImgSend;
-                            lAnswerHeader.info =
-                                (((msgStereoCamInternal *) clients[i].subscribers[MSGID_WEBCAM_STEREO].second.front())->width) /
-                                20;
 
-                            lAnswer = new char[sendSize];
+                            // malloc because we use realloc subsequently
+                            lRetourSize = nbrImgSend * sizeof(msgCam) * 2;
+                            lAnswer = (char*)malloc(lRetourSize);
 
                             msgCam                  lCamData;
                             msgStereoCamInternal    *currentCamStruct = 0;
                             for(unsigned int k = 0; k < lAnswerHeader.size; k++)
                             {
                                 // msgCam struct copy at the packet beginning
-                                currentCamStruct = (msgStereoCamInternal *) clients[i].subscribers[MSGID_WEBCAM_STEREO].second.front();
-                                lCamData.width = currentCamStruct->width;
-                                lCamData.height = currentCamStruct->height;
+                                currentCamStruct = (msgStereoCamInternal *) clients[lHeader.clientId].subscribers[MSGID_WEBCAM_STEREO].second.front();
+                                lCamData.width = currentCamStruct->width_L;
+                                lCamData.height = currentCamStruct->height_L;
                                 lCamData.channels = currentCamStruct->channels;
-                                lCamData.sizeData = currentCamStruct->sizeData;
+                                lCamData.sizeData = currentCamStruct->sizeData_L;
+                                lCamData.compressionType = currentCamStruct->compressionType;
                                 lCamData.timestamp = currentCamStruct->timestamp;
 
-                                // Header copy
+                                // Header copy for left image
                                 memcpy(lAnswer + (k + 0) * sizeof(msgCam), &lCamData, sizeof(msgCam));
+
+                                // Header copy for right image
+                                lCamData.width = currentCamStruct->width_R;
+                                lCamData.height = currentCamStruct->height_R;
+                                lCamData.sizeData = currentCamStruct->sizeData_R;
                                 memcpy(lAnswer + (k + 1) * sizeof(msgCam), &lCamData, sizeof(msgCam));
+
+                                // On realloc pour chaque image car elles peuvent etre de taille differente
+                                lRetourSize += currentCamStruct->sizeData_L + currentCamStruct->sizeData_R;
+                                lAnswer = (char*)realloc(lAnswer, lRetourSize);
 
                                 // Left Image copy
                                 memcpy(
-                                    lAnswer + nbrImgSend * sizeof(msgCam) * 2 + k * imgSizeBytes * 2,
+                                    lAnswer + lRetourSize - (currentCamStruct->sizeData_L + currentCamStruct->sizeData_R),
                                     currentCamStruct->cptr_L,
-                                    imgSizeBytes
+                                    currentCamStruct->sizeData_L
                                 );
 
                                 // Right Image copy
                                 memcpy(
-                                    lAnswer + nbrImgSend * sizeof(msgCam) * 2 + k * imgSizeBytes * 2 + imgSizeBytes,
+                                    lAnswer + lRetourSize - currentCamStruct->sizeData_R,
                                     currentCamStruct->cptr_R,
-                                    imgSizeBytes
+                                    currentCamStruct->sizeData_R
                                 );
 
                                 // Buffer pruning
                                 delete[] currentCamStruct->cptr_L;
                                 delete[] currentCamStruct->cptr_R;
                                 delete currentCamStruct;
-                                clients[i].subscribers[MSGID_WEBCAM_STEREO].second.pop();
+                                clients[lHeader.clientId].subscribers[MSGID_WEBCAM_STEREO].second.pop();
                             }
 
-                            ROS_INFO("Send webcam data: %X (size = %i)", lAnswerHeader.type, sendSize);
-                            sendDataToClient(i, &lAnswerHeader, lAnswer, sendSize, clients[i].compression);
-                        }
+                            ROS_INFO("Send stereo webcam data: %X (size = %i)", lAnswerHeader.type, lRetourSize);
+                            sendDataToClient(i, &lAnswerHeader, lAnswer, lRetourSize, clients[lHeader.clientId].compression);
 
-                        delete lAnswer;
+                            free(lAnswer);
+                        }
+                        break;
+
+                    case MSGID_KINECT:
+                        {
+                            lAnswerHeader.type = MSGID_KINECT;lAnswerHeader.error = 0;
+                            lAnswerHeader.packetTimestamp = ros::Time::now().toSec();
+
+                            nbrImgSend = clients[lHeader.clientId].subscribers[MSGID_KINECT].second.size();
+                            lAnswerHeader.size = nbrImgSend;
+
+                            // malloc because we use realloc subsequently
+                            lRetourSize = nbrImgSend * sizeof(msgKinect);
+                            lAnswer = (char*)malloc(lRetourSize);
+
+                            msgKinectInternal *currentKinectStruct = 0;
+                            msgKinect lKinectData;
+                            for(unsigned int k = 0; k < lAnswerHeader.size; k++)
+                            {
+                                currentKinectStruct = (msgKinectInternal *) clients[lHeader.clientId].subscribers[MSGID_KINECT].second.front();
+                                lKinectData.infoRGB.width = currentKinectStruct->infoRGB.width;
+                                lKinectData.infoRGB.height = currentKinectStruct->infoRGB.height;
+                                lKinectData.infoRGB.channels = currentKinectStruct->infoRGB.channels;
+                                lKinectData.infoRGB.sizeData = currentKinectStruct->infoRGB.sizeData;
+                                lKinectData.infoRGB.compressionType = currentKinectStruct->infoRGB.compressionType;
+                                lKinectData.infoRGB.timestamp = currentKinectStruct->infoRGB.timestamp;
+
+                                lKinectData.infoDepth.width = currentKinectStruct->infoDepth.width;
+                                lKinectData.infoDepth.height = currentKinectStruct->infoDepth.height;
+                                lKinectData.infoDepth.channels = currentKinectStruct->infoDepth.channels;
+                                lKinectData.infoDepth.sizeData = currentKinectStruct->infoDepth.sizeData;
+                                lKinectData.infoDepth.compressionType = currentKinectStruct->infoDepth.compressionType;
+                                lKinectData.infoDepth.timestamp = currentKinectStruct->infoDepth.timestamp;
+
+                                // Image subheader copy
+                                memcpy(lAnswer + k * sizeof(msgKinect), &lKinectData, sizeof(msgKinect));
+
+                                // On realloc pour chaque image car elles peuvent etre de taille differente
+                                lRetourSize += currentKinectStruct->infoRGB.sizeData + currentKinectStruct->infoDepth.sizeData;
+                                lAnswer = (char*)realloc(lAnswer, lRetourSize);
+
+                                // RGB image copy
+                                if(currentKinectStruct->infoRGB.sizeData > 0){
+                                    memcpy(
+                                        lAnswer + lRetourSize - (currentKinectStruct->infoRGB.sizeData + currentKinectStruct->infoDepth.sizeData),
+                                        currentKinectStruct->infoRGB.cptr,
+                                        currentKinectStruct->infoRGB.sizeData
+                                    );
+                                    delete[] currentKinectStruct->infoRGB.cptr;
+                                }
+
+                                // Depth image copy
+                                if(currentKinectStruct->infoDepth.sizeData > 0){
+                                    memcpy(
+                                        lAnswer + lRetourSize - currentKinectStruct->infoDepth.sizeData,
+                                        currentKinectStruct->infoDepth.cptr,
+                                        currentKinectStruct->infoDepth.sizeData
+                                    );
+                                    delete[] currentKinectStruct->infoDepth.cptr;
+                                }
+
+                                delete currentKinectStruct;
+                            }
+
+                            ROS_INFO("Send kinect data: %X (size = %i)", lAnswerHeader.type, lRetourSize);
+                            sendDataToClient(i, &lAnswerHeader, lAnswer, lRetourSize, clients[lHeader.clientId].compression);
+
+                            free(lAnswer);
+                        }
                         break;
 
                     case MSGID_HOKUYO:
-                        ROS_INFO("Received Hokuyo");
-                        lAnswerHeader.type = MSGID_HOKUYO;
-                        lAnswerHeader.info = 0x00;
-                        lAnswerHeader.packetTimestamp = ros::Time::now().toSec();
-                        if(clients[i].subscribers[MSGID_HOKUYO].second.size() == 0)
                         {
-                            // No image to send
-                            ROS_INFO("No data to send");
-                            lAnswerHeader.size = 0;
-                            lAnswer = new char[sizeof(msgHeader)];
-                            memcpy(lAnswer, &lAnswerHeader, sizeof(msgHeader));
-                            send(i, lAnswer, sizeof(msgHeader), 0);
-                        }
-                        else
-                        {
+                            lAnswerHeader.type = MSGID_HOKUYO;
+                            lAnswerHeader.error = 0;
+                            lAnswerHeader.packetTimestamp = ros::Time::now().toSec();
+                            
                             /* Sending protocol: We send an msgHeader containing the number of depth scans 
                                  * contained in the size variable.
                                  * Then, we send EVERY rangeStruct in one shot, then the ranges having the 
                                  * same size */
-                            nbrCaptureSend = clients[i].subscribers[MSGID_HOKUYO].second.size();
+                            nbrCaptureSend = clients[lHeader.clientId].subscribers[MSGID_HOKUYO].second.size();
 
                             int rangesSizeBytes =
-                                ((msgHokuyoInternal *) clients[i].subscribers[MSGID_HOKUYO].second.front())->sizeData;
+                                ((msgHokuyoInternal *) clients[lHeader.clientId].subscribers[MSGID_HOKUYO].second.front())->sizeData;
 
                             int sendSize = nbrCaptureSend * sizeof(msgHokuyo) + nbrCaptureSend * rangesSizeBytes;
 
@@ -1783,7 +1769,7 @@ int main(int argc, char **argv)
                             for(unsigned int k = 0; k < lAnswerHeader.size; k++)
                             {
                                 // msgCam struct copy at the packet beginning
-                                currentStruct = (msgHokuyoInternal *) clients[i].subscribers[MSGID_HOKUYO].second.front();
+                                currentStruct = (msgHokuyoInternal *) clients[lHeader.clientId].subscribers[MSGID_HOKUYO].second.front();
                                 lHokuyoData.angleMin = currentStruct->angleMin;
                                 lHokuyoData.angleMax = currentStruct->angleMax;
                                 lHokuyoData.angleIncrement = currentStruct->angleIncrement;
@@ -1804,14 +1790,15 @@ int main(int argc, char **argv)
                                 // Buffer pruning
                                 delete[] currentStruct->cptr;
                                 delete currentStruct;
-                                clients[i].subscribers[MSGID_HOKUYO].second.pop();
+                                clients[lHeader.clientId].subscribers[MSGID_HOKUYO].second.pop();
                             }
 
                             ROS_INFO("Send hokuyo data: %X (size = %i)", lAnswerHeader.type, sendSize);
-                            sendDataToClient(i, &lAnswerHeader, lAnswer, sendSize, clients[i].compression);
-                        }
+                            sendDataToClient(i, &lAnswerHeader, lAnswer, sendSize, clients[lHeader.clientId].compression);
+                            
 
-                        delete lAnswer;
+                            delete lAnswer;
+                        }
                         break;
 
                     // TODO: Unify all these together
@@ -1819,7 +1806,7 @@ int main(int argc, char **argv)
                         ROS_DEBUG("Received Battery");
                         lAnswerHeader.type = lHeader.type;
                         lAnswerHeader.size = clients[lHeader.clientId].subscribers[lHeader.type].second.size();
-                        lAnswerHeader.info = 0x00;
+                        lAnswerHeader.error = 0;
                         lAnswerHeader.packetTimestamp = ros::Time::now().toSec();
 
                         lAnswer = new char[lAnswerHeader.size * sizeof(msgBattery)];
@@ -1848,7 +1835,7 @@ int main(int argc, char **argv)
                         ROS_DEBUG("Received GPS");
                         lAnswerHeader.type = lHeader.type;
                         lAnswerHeader.size = clients[lHeader.clientId].subscribers[lHeader.type].second.size();
-                        lAnswerHeader.info = 0x00;
+                        lAnswerHeader.error = 0;
                         lAnswerHeader.packetTimestamp = ros::Time::now().toSec();
 
                         lAnswer = new char[lAnswerHeader.size * sizeof(msgGps)];
@@ -1877,7 +1864,7 @@ int main(int argc, char **argv)
                         ROS_DEBUG("Received Computer");
                         lAnswerHeader.type = lHeader.type;
                         lAnswerHeader.size = clients[lHeader.clientId].subscribers[lHeader.type].second.size();
-                        lAnswerHeader.info = 0x00;
+                        lAnswerHeader.error = 0;
                         lAnswerHeader.packetTimestamp = ros::Time::now().toSec();
 
                         lAnswer = new char[lAnswerHeader.size * sizeof(msgComputer)];
@@ -1907,8 +1894,8 @@ int main(int argc, char **argv)
                         ROS_DEBUG("Received ADC");
                         lAnswerHeader.type = lHeader.type;
                         lAnswerHeader.size = clients[lHeader.clientId].subscribers[lHeader.type].second.size();
-                        lAnswerHeader.info = 0x00;
                         lAnswerHeader.packetTimestamp = ros::Time::now().toSec();
+                        lAnswerHeader.error = 0;
 
                         lAnswer = new char[lAnswerHeader.size * sizeof(msgAdc)];
                         for(unsigned int k = 0; k < lAnswerHeader.size; k++)
@@ -1936,8 +1923,8 @@ int main(int argc, char **argv)
                         ROS_DEBUG("Received IMU");
                         lAnswerHeader.type = lHeader.type;
                         lAnswerHeader.size = clients[lHeader.clientId].subscribers[lHeader.type].second.size();
-                        lAnswerHeader.info = 0x00;
                         lAnswerHeader.packetTimestamp = ros::Time::now().toSec();
+                        lAnswerHeader.error = 0;
 
                         lAnswer = new char[lAnswerHeader.size * sizeof(msgImu)];
                         for(unsigned int k = 0; k < lAnswerHeader.size; k++)
