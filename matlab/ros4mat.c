@@ -151,6 +151,7 @@ void send_message(const char type, uint32_t qty, char *payload, uint32_t payload
     lHeader.type = type;
     lHeader.size = qty;
     lHeader.error = 0;
+    lHeader.clientId = client_id;
     lHeader.packetTimestamp = 0.0;
 
     memcpy(
@@ -350,6 +351,7 @@ void logico_start(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
     memcpy(&lHeader, msg, sizeof(msgHeader));
     if (lHeader.type != MSGID_CONNECT_ACK) mexErrMsgTxt("Incompatible ros4mat answer.");
+    client_id = lHeader.clientId;
 
     mexMakeMemoryPersistent(client_id);
 
