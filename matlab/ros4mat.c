@@ -939,19 +939,55 @@ void logico_gps(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     mxFree(msg);
 }
 
+
+void format_camera_image(msgCam *lCam, char *msg, unsigned int i, unsigned int totalQty, unsigned char *out_data, double *out_data_ts)
+{
+    char            *inPixelSource;
+    unsigned int    sizeImg = lCam->width * lCam->height * 3;
+    uint32_t        msg_pos;
+    unsigned int    a, b, y, x;
+
+    msg_pos = sizeof(msgHeader) + sizeof(msgCam) * totalQty;
+
+    /* Get image source */
+    switch (lCam->compressionType) {
+        case MSGID_WEBCAM_NOCOMPRESSION:
+            /* Set the pixel source pointer directly to the message header */
+            inPixelSource = &msg[sizeof(msgHeader)              /* Skip the packet header */
+                                 + sizeof(msgCam) * totalQty    /* Skip the msgCam Header */
+                                 + sizeImg * i];                /* Skip previous images */
+            break;
+        default:
+            /* Decompress the image first and set the pixel source pointer to it */
+            inPixelSource = (char *) mxMalloc(sizeImg);
+            decodeJPEG(msg + msg_pos, lCam->sizeData, (uint32_t*)inPixelSource);
+            msg_pos += lCam->sizeData;
+    }
+
+    /* Matlab formatting */
+    for(y = 0, b = 0; y < lCam->width * lCam->height * 3 - lCam->width * 3; b++, y += lCam->width * 3)
+    {
+        for(x = y, a = b; x < y + lCam->width * 3; a += lCam->height)
+        {
+            #define DESTINATION_STRIDE     a + i * sizeImg + lCam->width * lCam->height
+            out_data[DESTINATION_STRIDE * 0] = inPixelSource[x++];
+            out_data[DESTINATION_STRIDE * 1] = inPixelSource[x++];
+            out_data[DESTINATION_STRIDE * 2] = inPixelSource[x++];
+        }
+    }
+
+    out_data_ts[i] = (double) lCam->timestamp;
+}
+
 /* */
 void logico_camera(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
     char            *msg = NULL;
-    char            *inPixelSource;
     msgHeader       lHeader;
     msgCam          lCam;
     unsigned int    i;
-    unsigned int    a, b, y, x;
-    uint32_t        msg_pos;
     unsigned char   *out_data;
     double          *out_data_ts;
-    unsigned int    sizeImg = 0;
     unsigned int    cam_size[4] = { 0, 0, 3, 0 };
 
     if (initialized == 0) mexErrMsgTxt("No connection established.");
@@ -969,44 +1005,16 @@ void logico_camera(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     out_data = (unsigned char *) mxGetData(plhs[0]);
     out_data_ts = (double *) mxGetPr(plhs[1]);
 
-    msg_pos = sizeof(msgHeader) + sizeof(msgCam) * lHeader.size;
-
     for(i = 0; i < lHeader.size; i++)
     {
-        /* On passe sur toutes les images */
-        memcpy(&lCam, msg + sizeof(msgHeader) + i * sizeof(msgCam), sizeof(msgCam));
-
-        sizeImg = lCam.width * lCam.height * 3;
-        y = 0;
-
-        /* Get image source */
-        switch (lCam.compressionType) {
-            case MSGID_WEBCAM_NOCOMPRESSION:
-                /* Set the pixel source pointer directly to the message header */
-                inPixelSource = &msg[sizeof(msgHeader)               /* Skip the packet header */
-                                     + sizeof(msgCam) * lHeader.size /* Skip the msgCam Header */
-                                     + sizeImg * i];           /* Skip previous images */
-                break;
-            default:
-                /* Decompress the image first and set the pixel source pointer to it */
-                inPixelSource = (char *) mxMalloc(sizeImg);
-                decodeJPEG(msg + msg_pos, lCam.sizeData, (uint32_t*)inPixelSource);
-                msg_pos += lCam.sizeData;
-        }
-
-        /* Matlab formatting */
-        for(y = 0, b = 0; y < lCam.width * lCam.height * 3 - lCam.width * 3; b++, y += lCam.width * 3)
-        {
-            for(x = y, a = b; x < y + lCam.width * 3; a += lCam.height)
-            {
-                #define DESTINATION_STRIDE     a + i * sizeImg + lCam.width * lCam.height
-                out_data[DESTINATION_STRIDE * 0] = inPixelSource[x++];
-                out_data[DESTINATION_STRIDE * 1] = inPixelSource[x++];
-                out_data[DESTINATION_STRIDE * 2] = inPixelSource[x++];
-            }
-        }
-
-        out_data_ts[i] = (double) lCam.timestamp;
+        format_camera_image(
+            (msgCam*)msg + sizeof(msgHeader) + i * sizeof(msgCam),
+            msg,
+            i,
+            lHeader.size,
+            out_data,
+            out_data_ts
+        );
     }
 
     mxFree(msg);
