@@ -1379,6 +1379,10 @@ int main(int argc, char **argv)
                     msgDigitalOut   lDigitalCmd;
                     msgSerialCmd    lSerialCmd;
                     msgSerialAns    lSerialAns;
+
+                    memset(&msgHeader, 0, sizeof(msgHeader));
+                    memset(&msgSerialAns, 0, sizeof(msgSerialAns));
+
                     char            *lRetour;
                     uint32_t        lRetourSize = 0;
                     char            *bufferSubscribe, *bufferData, *bufferPort;
@@ -1402,7 +1406,7 @@ int main(int argc, char **argv)
                         lAnswer = new char[sizeof(msgHeader)];
                         lAnswerHeader.type = MSGID_CONNECT_ACK;
                         lAnswerHeader.error = 0;
-                        lAnswerHeader.size = 1;
+                        lAnswerHeader.size = 0;
                         lAnswerHeader.packetTimestamp = 0.0;
 
                         if(lHeader.clientId == 0){
