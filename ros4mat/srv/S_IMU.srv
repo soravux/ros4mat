@@ -1,0 +1,6 @@
+bool subscribe
+uint16 imuFreqAcq
+uint16 imuFreqPoll
+uint32 imuBufferSize
+---
+int8 ret
