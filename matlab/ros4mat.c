@@ -93,7 +93,7 @@
 static int                    initialized = 0;
 static struct sockaddr_in     *sock_in = NULL;
 static int                    *main_socket = NULL;
-static int                    *client_id = 0;
+static int                    client_id = 0;
 
 
 /*******************************************************************************
@@ -353,7 +353,7 @@ void logico_start(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     if (lHeader.type != MSGID_CONNECT_ACK) mexErrMsgTxt("Incompatible ros4mat answer.");
     client_id = lHeader.clientId;
 
-    mexMakeMemoryPersistent(client_id);
+    mexMakeMemoryPersistent(&client_id);
 
     ++initialized;
 }
