@@ -143,7 +143,7 @@ void send_message(const char type, uint32_t qty, char *payload, uint32_t payload
     msgHeader       lHeader;
     unsigned int    i = 0;
 
-    if (initialized == 0) {
+    if (initialized == 0 && type != MSGID_CONNECT) {
         mexErrMsgTxt("No connection established.");
     }
 
