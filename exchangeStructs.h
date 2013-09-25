@@ -49,10 +49,11 @@
     double packetTimestamp;         /* Timestamp de l'envoi du paquet (pour les mesures de perf) */
  } PACKEDSTRUCT;
 
+#define MSGID_PROTOCOL_VERSION 0x02
 #define MSGID_CONNECT 0x01
  typedef struct msgConnect msgConnect;
  struct msgConnect{
-    char protocolVersion;           /* Toujours 1 */
+    char protocolVersion;           /* */
     char compression;               /* Activer ou non la compression (voir enum compression_type) */
 } PACKEDSTRUCT;
 

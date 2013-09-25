@@ -149,15 +149,18 @@ void send_message(const char type, uint32_t qty, char *payload, uint32_t payload
 
     msg = (char *) mxCalloc(1, sizeof(msgHeader) + payload_size);
     ((msgHeader*)msg)->type = type;
-    ((msgHeader*)msg)->size = qty;
     ((msgHeader*)msg)->error = 0;
     ((msgHeader*)msg)->clientId = client_id;
+    ((msgHeader*)msg)->size = qty;
+    ((msgHeader*)msg)->uncompressSize = payload_size;
+    ((msgHeader*)msg)->compressSize = payload_size;
+    ((msgHeader*)msg)->compressionType = MSGID_HEADER_NOCOMPRESSION;
     ((msgHeader*)msg)->packetTimestamp = 0.0;
 
     if (payload_size > 0) {
         memcpy(
             msg + sizeof(msgHeader),
-            &payload,
+            payload,
             sizeof(payload_size)
         );
     }
@@ -271,13 +274,12 @@ void logico_start(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     }
 
     msg = (char *) mxCalloc(1, sizeof(msgHeader) + sizeof(msgConnect));
-    lConnectMessage.protocolVersion = 1;
+    lConnectMessage.protocolVersion = MSGID_PROTOCOL_VERSION;
 
-    lConnectMessage.compression =
-        (
+    lConnectMessage.compression = (
             nrhs > 1
-        &&    (uint16_t) mxGetScalar(prhs[1]) == 1
-        ) ? MSGID_HEADER_ZLIBCOMPRESSION : MSGID_HEADER_NOCOMPRESSION;
+        && (uint16_t) mxGetScalar(prhs[1]) == 1
+    ) ? MSGID_HEADER_ZLIBCOMPRESSION : MSGID_HEADER_NOCOMPRESSION;
 
     #if defined USE_WINSOCK
         if (init_winsock() != 0) mexErrMsgTxt("Winsock initialisation error.");
@@ -340,14 +342,12 @@ void logico_start(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         sizeof(msgConnect)
     );
 
-    /* Verification du message recu */
+    /* Validate received message and */
     receive_message_header((void**)&msg);
 
     memcpy(&lHeader, msg, sizeof(msgHeader));
     if (lHeader.type != MSGID_CONNECT_ACK) mexErrMsgTxt("Incompatible ros4mat answer.");
     client_id = lHeader.clientId;
-
-    mexMakeMemoryPersistent(&client_id);
 
     ++initialized;
 }
