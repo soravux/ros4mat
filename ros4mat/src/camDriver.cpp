@@ -50,6 +50,9 @@ void dataCamSync(const sensor_msgs::Image::ConstPtr& image){
 	msg.channels = 3;
 	msg.timestamp = image->header.stamp.toSec();
 
+
+	msg.compressionRatio = compression;
+
 	if(compression == 0){	// No compression
 		msg.image = image->data;
 	}
@@ -152,6 +155,8 @@ int main(int argc, char* argv[])
 	loop_rate = &l_loop_rate;
 	
     initialised = true;
+
+    ros::Subscriber sub = l_n.subscribe("/image_raw", 2 * 10 * 30, dataCamSync);
 	
 	while (ros::ok())
 	{
