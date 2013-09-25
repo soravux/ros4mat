@@ -604,10 +604,11 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
     {
     case MSGID_ADC:
 
-        memcpy(info, &lStructAdc, sizeof(lStructAdc));
+        memcpy(&lStructAdc, info, sizeof(lStructAdc));
 
         if(!subOnly)
         {
+            ROS_INFO("Channels info %X", lStructAdc.channels);
             for(unsigned int i = 0; i < 8; i++)
             {
                 lParamsSetAdc.request.adcChannels[i] = (lStructAdc.channels & (1 << i));
@@ -652,7 +653,7 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
         break;
 
     case MSGID_IMU:
-        memcpy(info, &lStructImu, sizeof(lStructImu));
+        memcpy(&lStructImu, info, sizeof(lStructImu));
         if(subOnly)
         {
             lParamsSetImu.request.imuFreqAcq = 0;
@@ -696,7 +697,7 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
         break;
 
     case MSGID_WEBCAM:
-        memcpy(info, &lStructCamera, sizeof(lStructCamera));
+        memcpy(&lStructCamera, info, sizeof(lStructCamera));
         if(subOnly)
         {
             lParamsSetCam.request.subscribe = true;
@@ -739,7 +740,7 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
         break;
 
     case MSGID_WEBCAM_STEREO:
-        memcpy(info, &lStructStereoCam, sizeof(lStructStereoCam));
+        memcpy(&lStructStereoCam, info, sizeof(lStructStereoCam));
         if(subOnly)
         {
             lParamsSetStereoCam.request.subscribe = true;
@@ -787,7 +788,7 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
         break;
 
     case MSGID_KINECT:
-        memcpy(info, &lStructKinect, sizeof(lStructKinect));
+        memcpy(&lStructKinect, info, sizeof(lStructKinect));
         if(subOnly)
         {
             lParamsSetKinect.request.subscribe = true;
@@ -829,7 +830,7 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
         break;
 
     case MSGID_COMPUTER:
-        memcpy(info, &lStructComputer, sizeof(lStructComputer));
+        memcpy(&lStructComputer, info, sizeof(lStructComputer));
         if(subOnly)
         {
             lParamsSetComputer.request.subscribe = true;
@@ -1342,8 +1343,8 @@ int main(int argc, char **argv)
 
 
                     // Message reception
+                    msg = new char[lHeader.uncompressSize];
                     if(lHeader.size > 0){
-                        msg = new char[lHeader.uncompressSize];
                         recvReturn = recv(i, msg, lHeader.uncompressSize, MSG_WAITALL);
                         if(recvReturn == -1)
                         {
@@ -1402,6 +1403,7 @@ int main(int argc, char **argv)
                         lAnswer = new char[sizeof(msgHeader)];
                         memcpy(lAnswer, &lAnswerHeader, sizeof(msgHeader));
                         send(i, lAnswer, sizeof(msgHeader), 0);
+                        delete[] msg;
                         continue;
                     }
 
@@ -1441,7 +1443,7 @@ int main(int argc, char **argv)
                         send(i, lAnswer, sizeof(msgHeader), 0);
                             
                         clients[lAnswerHeader.clientId].compression = lConnect.compression;
-                        delete lAnswer;
+                        delete[] lAnswer;
                         break;
 
                     case MSGID_QUIT:
@@ -1460,13 +1462,13 @@ int main(int argc, char **argv)
 
                         if(lSubscribe.paramsSize == 0){
                             ROS_WARN("Subscribe received a paramsSize of 0. Invalid!");
-                            continue;
                         }
-
-                        bufferSubscribe = new char[lSubscribe.paramsSize];
-                        memcpy(bufferSubscribe, msg+sizeof(msgSubscribe), lSubscribe.paramsSize);
-                        subscribeTo(lSubscribe.typeCapteur, lSubscribe.bufferSize, bufferSubscribe, lSubscribe.silentSubscribe == 1, nodeRos, clients[lHeader.clientId]);
-                        delete[] bufferSubscribe;
+                        else{
+                            bufferSubscribe = new char[lSubscribe.paramsSize];
+                            memcpy(bufferSubscribe, msg+sizeof(msgSubscribe), lSubscribe.paramsSize);
+                            subscribeTo(lSubscribe.typeCapteur, lSubscribe.bufferSize, bufferSubscribe, lSubscribe.silentSubscribe == 1, nodeRos, clients[lHeader.clientId]);
+                            delete[] bufferSubscribe;
+                        }
                         break;
 
                     case MSGID_UNSUBSCRIBE:
@@ -1514,7 +1516,7 @@ int main(int argc, char **argv)
                         if(lSerialCmd.readLength > 0)
                             delete[] lRetour;
 
-                        delete lAnswer;
+                        delete[] lAnswer;
                         break;
 
                     case MSGID_DOUT_CTRL:
@@ -1759,7 +1761,7 @@ int main(int argc, char **argv)
                             sendDataToClient(i, &lAnswerHeader, lAnswer, sendSize, clients[lHeader.clientId].compression);
                             
 
-                            delete lAnswer;
+                            delete[] lAnswer;
                         }
                         break;
 
@@ -1791,7 +1793,7 @@ int main(int argc, char **argv)
                             lAnswerHeader.size * sizeof(msgGps),
                             clients[lHeader.clientId].compression
                         );
-                        delete lAnswer;
+                        delete[] lAnswer;
                         break;
 
                     case MSGID_COMPUTER:
@@ -1821,7 +1823,7 @@ int main(int argc, char **argv)
                             clients[lHeader.clientId].compression
                         );
 
-                        delete lAnswer;
+                        delete[] lAnswer;
                         break;
 
                     case MSGID_ADC:
@@ -1850,7 +1852,7 @@ int main(int argc, char **argv)
                             lAnswerHeader.size * sizeof(msgAdc),
                             clients[lHeader.clientId].compression
                         );
-                        delete lAnswer;
+                        delete[] lAnswer;
                         break;
 
                     case MSGID_IMU:
@@ -1879,7 +1881,7 @@ int main(int argc, char **argv)
                             lAnswerHeader.size * sizeof(msgImu),
                             clients[lHeader.clientId].compression
                         );
-                        delete lAnswer;
+                        delete[] lAnswer;
                         break;
 
                     default:
