@@ -104,11 +104,6 @@ bool newConfKinect(ros4mat::S_Kinect::Request& request, ros4mat::S_Kinect::Respo
             return true;
         }
 
-		if(nbrKinectSubscribers == 1){
-			ROS_INFO("Pas de publisher disponible, creation de celui-ci...");
-			kinectPublisher = n->advertise<ros4mat::M_Kinect>("D_Kinect/data", request.kinectBufferSize);
-		}
-
 		
 		*loop_rate = ros::Rate((double)request.fps);
 		running = true;
@@ -159,6 +154,9 @@ int main(int argc, char* argv[])
         message_filters::Synchronizer<MySyncPolicy> sync(MySyncPolicy(10), imageRGB_sub, imageDepth_sub);
 
         sync.registerCallback(boost::bind(dataKinectSync, _1, _2));
+
+
+	kinectPublisher = n->advertise<ros4mat::M_Kinect>("D_Kinect/data", request.kinectBufferSize);
 	
 	
     initialised = true;
