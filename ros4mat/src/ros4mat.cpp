@@ -1458,6 +1458,11 @@ int main(int argc, char **argv)
                         memcpy(&lSubscribe, msg, sizeof(msgSubscribe));
                         ROS_DEBUG("Received Subscribe for %X", lSubscribe.typeCapteur);
 
+                        if(lSubscribe.paramsSize == 0){
+                            ROS_WARN("Subscribe received a paramsSize of 0. Invalid!");
+                            continue;
+                        }
+
                         bufferSubscribe = new char[lSubscribe.paramsSize];
                         memcpy(bufferSubscribe, msg+sizeof(msgSubscribe), lSubscribe.paramsSize);
                         subscribeTo(lSubscribe.typeCapteur, lSubscribe.bufferSize, bufferSubscribe, lSubscribe.silentSubscribe == 1, nodeRos, clients[lHeader.clientId]);
