@@ -483,6 +483,8 @@ void dataKinectReceived(const ros4mat::M_Kinect::ConstPtr &msg)
         lMsg->infoRGB.channels = 3;
         lMsg->infoRGB.sizeData = (msg->rgb).size();
 
+        lMsg->infoDepth.width = msg->width_depth;
+        lMsg->infoDepth.height = msg->height_depth;
         lMsg->infoDepth.sizeData = (msg->depth).size();
 
         /*if(lMsg->sizeData != lMsg->width * lMsg->height * 1 * 2)
@@ -503,7 +505,6 @@ void dataKinectReceived(const ros4mat::M_Kinect::ConstPtr &msg)
         }
         for(unsigned int i = 0; i < lMsg->infoDepth.sizeData; i++)
         {
-            // Hum, c'est pas en uint16??
             bufferDepth[i] = (msg->depth)[i];
         }
 
