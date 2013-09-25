@@ -1700,6 +1700,7 @@ int main(int argc, char **argv)
                                 }
 
                                 delete currentKinectStruct;
+                                clients[lHeader.clientId].subscribers[MSGID_KINECT].second.pop();
                             }
 
                             ROS_INFO("Send kinect data: %X (size = %i)", lAnswerHeader.type, lRetourSize);
