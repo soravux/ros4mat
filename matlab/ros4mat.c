@@ -161,7 +161,7 @@ void send_message(const char type, uint32_t qty, char *payload, uint32_t payload
         memcpy(
             msg + sizeof(msgHeader),
             payload,
-            sizeof(payload_size)
+            payload_size
         );
     }
 
@@ -525,7 +525,7 @@ void logico_subscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]
     /* Parse parameters for each sensor */
     switch (lSubscribeMessage.typeCapteur) {
         case MSGID_ADC:
-            lParameters.adc.channels = (signed char) mxGetScalar(prhs[2]);
+            lParameters.adc.channels = (unsigned char) mxGetScalar(prhs[2]);
             if (!lParamSize) { lParamSize = sizeof(paramsAdc); }
         case MSGID_GPS:
         case MSGID_IMU:
@@ -533,8 +533,8 @@ void logico_subscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]
             if (nrhs > 4) {
                 lParameters.adc.freqSend = (uint16_t) mxGetScalar(prhs[4]);
                 if (lParameters.adc.freqSend > (uint16_t) mxGetScalar(prhs[1])) {
-                lParameters.adc.freqSend = (uint16_t) mxGetScalar(prhs[1]);
-            }
+                    lParameters.adc.freqSend = (uint16_t) mxGetScalar(prhs[1]);
+                }
             } else {
                 /* Put default freqSend value based of freqAcquisition */
                 lParameters.adc.freqSend = (uint16_t) ((float) mxGetScalar(prhs[1]) / 4.0 + 10.0);
@@ -585,6 +585,7 @@ void logico_subscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]
             mexErrMsgTxt("Unsupported node: Parsing error.");
             break;
     }
+    lSubscribeMessage.paramsSize = lParamSize;
     /* Step 3: Build a message composed of [ msgSubscribe |  parameters ] */
     msg = mxMalloc( sizeof(msgSubscribe) + lParamSize);
     memcpy(
@@ -696,7 +697,7 @@ msgHeader logico_send_data_request(char inType, char **msg, unsigned int inStruc
     }
 
     /* Rebuild a new message with the data annexed to the header */
-    mxFree(msg);
+    mxFree(*msg);
     *msg = (char *) mxCalloc(1, sizeof(msgHeader) + lHeader.uncompressSize);
     memcpy(*msg, &lHeader, sizeof(msgHeader));
 
