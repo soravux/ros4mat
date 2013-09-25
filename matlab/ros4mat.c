@@ -492,6 +492,7 @@ void logico_subscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]
 
     /* Initialize struct variables to zero. */
     memset(&lSubscribeMessage, 0, sizeof(msgSubscribe));
+    memset(&lParameters, 0, sizeof(subscriptionParameters));
 
     /* Step 1: Find which type of sensor we'ere subscribing to */
     if (initialized == 0) { mexErrMsgTxt("No connection established."); }
@@ -578,6 +579,7 @@ void logico_subscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]
             }
             lParameters.cam.width *= 20;
             lParameters.cam.height = lParameters.cam.width * 3 / 4;
+            lParameters.cam.fps = (uint16_t) mxGetScalar(prhs[1]);
 
             break;
 
@@ -1004,7 +1006,7 @@ void logico_camera(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     for(i = 0; i < lHeader.size; i++)
     {
         format_camera_image(
-            (msgCam*)msg + sizeof(msgHeader) + i * sizeof(msgCam),
+            (msgCam*)(msg + sizeof(msgHeader) + i * sizeof(msgCam)),
             image_in_msg,
             i,
             out_data,
@@ -1241,7 +1243,6 @@ void logico_hokuyo(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     hokuyo_size[0] = lHokuyo.sizeData / sizeof(float);
     hokuyo_size[1] = lHeader.size;
 
-    /*mexPrintf("Hokuyo size by calc %f and by ref %i", (lHokuyo.angleMax - lHokuyo.angleMin) / lHokuyo.angleIncrement, lHokuyo.sizeData);*/
     plhs[0] = mxCreateNumericArray(2, hokuyo_size, mxSINGLE_CLASS, mxREAL);
     plhs[1] = mxCreateDoubleMatrix(1, lHeader.size, mxREAL);
     plhs[2] = mxCreateDoubleMatrix(1, 6, mxREAL);
@@ -1252,7 +1253,6 @@ void logico_hokuyo(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
     for(i = 0; i < lHeader.size; i++)
     {
-        /* On passe sur tous les echantillons */
         memcpy(&lHokuyo, msg + sizeof(msgHeader) + i * sizeof(msgHokuyo), sizeof(msgHokuyo));
         memcpy(
             out_data + i * hokuyo_size[0] * sizeof(float),
