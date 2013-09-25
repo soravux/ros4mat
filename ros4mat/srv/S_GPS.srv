@@ -1,0 +1,6 @@
+bool subscribe
+uint16 gpsFreqAcq
+uint32 gpsBufferSize
+---
+int8 ret
+int8 gpsStatus
