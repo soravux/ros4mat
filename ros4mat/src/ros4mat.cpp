@@ -532,7 +532,7 @@ void dataKinectReceived(const ros4mat::M_Kinect::ConstPtr &msg)
 
 
 // subscribeTo(lSubscribe.typeCapteur, lSubscribe.bufferSize, bufferSubscribe, lSubscribe.silentSubscribe == 1, nodeRos, clients[lHeader.clientId]);
-int subscribeTo(char typeCapteur, uint32_t bufferSize, char* info, bool subOnly, ros::NodeHandle nodeRos, matlabClient &in_client)
+int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool subOnly, ros::NodeHandle nodeRos, matlabClient &in_client)
 {
     /* TODO: ADD Buffer toward publishers*/
     /* C'est quoi ce TODO la?? */
@@ -1369,9 +1369,6 @@ int main(int argc, char **argv)
                             continue;
                         }
                     }
-                    else{
-                        ROS_WARN("No data send after header");
-                    }
 
 
                     // Header parsing and data handling
@@ -1398,11 +1395,14 @@ int main(int argc, char **argv)
                     {
                         // No data to send
                         ROS_INFO("No data to send");
+                        lAnswerHeader.type = lHeader.type;
                         lAnswerHeader.size = 0;
                         lAnswerHeader.error = 0;
+                        lAnswerHeader.packetTimestamp = ros::Time::now().toSec();
                         lAnswer = new char[sizeof(msgHeader)];
                         memcpy(lAnswer, &lAnswerHeader, sizeof(msgHeader));
                         send(i, lAnswer, sizeof(msgHeader), 0);
+                        continue;
                     }
 
                     switch(lHeader.type)
