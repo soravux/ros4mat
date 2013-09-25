@@ -813,6 +813,7 @@ int subscribeTo(char typeCapteur, uint32_t bufferSize, char* info, bool subOnly,
             lParamsSetKinect.request.width_depth = lStructKinect.widthRGB;
             lParamsSetKinect.request.height_depth = lStructKinect.heightRGB;
             lParamsSetKinect.request.fps = lStructKinect.fpsRGB;
+            lParamsSetKinect.request.compressionRatio = lStructKinect.compressionRGB;
             ROS_INFO("Envoi de la requete au service");
             if(!ros::service::call("/D_Kinect/params", lParamsSetKinect))
             {
