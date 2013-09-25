@@ -3,7 +3,7 @@ string device_L
 string device_R
 uint16 width
 uint16 height
-uint8 fps
+uint16 fps
 uint16 camBufferSize
 uint8 compressionRatio
 string calibrationFile
