@@ -32,6 +32,9 @@
 #include <sensor_msgs/Image.h>
 
 
+#include "jpge.h"       // Compression JPG. On ne peut pas utiliser celle de image_transport pour certaines raisons
+
+
 bool initialised = false;
 bool running = false;
 
@@ -56,6 +59,49 @@ void dataCameraSync(const sensor_msgs::Image::ConstPtr& imageL, const sensor_msg
 
 	msg.image_left = imageL->data;
 	msg.image_right = imageR->data;
+
+	msg.compressionRatio = compression;
+
+	if(compression == 0){	// No compression
+		msg.image_left = imageL->data;
+		msg.image_right = imageR->data;
+	}
+	else{
+		// JPEG compression
+		unsigned char *dataImg_L = new unsigned char[msg.width*msg.height*msg.channels];
+		unsigned char *dataImg_R = new unsigned char[msg.width*msg.height*msg.channels];
+		for(unsigned int i=0; i < imageL->data.size(); i++){
+			dataImg_L[i] = imageL->data[i];
+			dataImg_R[i] = imageR->data[i];
+		}
+
+
+		int outsize = msg.width*msg.height*msg.channels;
+		struct jpge::params paramsCompression = jpge::params();
+		paramsCompression.m_quality = (int)compression;
+
+		/* Left image */
+		unsigned char *bufjpeg = new unsigned char[msg.width*msg.height*msg.channels];
+		bool ok = jpge::compress_image_to_jpeg_file_in_memory(bufjpeg, outsize, msg.width, msg.height, msg.channels, dataImg_L, paramsCompression);
+
+		for(unsigned int i=0; i < outsize; i++)
+			msg.image_left.push_back(bufjpeg[i]);
+
+		delete[] bufjpeg;
+
+		bufjpeg = new unsigned char[msg.width*msg.height*msg.channels];
+		ok = jpge::compress_image_to_jpeg_file_in_memory(bufjpeg, outsize, msg.width, msg.height, msg.channels, dataImg_R, paramsCompression);
+
+		for(unsigned int i=0; i < outsize; i++)
+			msg.image_right.push_back(bufjpeg[i]);
+
+		delete[] bufjpeg;
+
+
+		delete[] dataImg_L;
+		delete[] dataImg_R;
+	}
+
 
 	stereoPublisher.publish(msg);
 }
@@ -89,6 +135,7 @@ bool newConfStereo(ros4mat::S_StereoCam::Request& request, ros4mat::S_StereoCam:
 		ret = system(ssRequest.str().c_str());
 		ROS_INFO("Fin de la commande (status %i)", ret);
 
+		compression = request.compressionRatio;
 
 		if(nbrStereoSubscribers == 1){
 			ROS_INFO("Pas de publisher disponible, creation de celui-ci...");

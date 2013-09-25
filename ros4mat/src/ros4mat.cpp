@@ -129,8 +129,6 @@ struct matlabClient
 {
     int                                                                         id;
     char                                                                        compression;
-    char                                                                        cameraCompression;      // 0 = No compression, ]0, 100] = JPEG with given compression level
-    char                                                                        kinectCompression;      // 0 = No compression, ]0, 100] = JPEG with given compression level
     std::map<unsigned int, std::pair<ros::Subscriber, std::queue<void *> > >    subscribers;    // subscribers, buffered data
     std::map<unsigned int, uint32_t>                                            buffersInfo;    // Allocated size
 };
@@ -220,7 +218,7 @@ void dataImuReceived(const ros4mat::M_IMU::ConstPtr &msg)
 }
 
 
-void dataCamReceived(const sensor_msgs::Image::ConstPtr &msg)
+void dataCamReceived(const ros4mat::M_Cam::ConstPtr &msg)
 {
     char                                    *bufferImg;
     std::map<uint32_t, matlabClient>::iterator   lClientIt;
@@ -233,8 +231,10 @@ void dataCamReceived(const sensor_msgs::Image::ConstPtr &msg)
         lMsg->width = msg->width;
         lMsg->height = msg->height;
         lMsg->channels = 3;
-        lMsg->sizeData = (msg->data).size();
-        if(lMsg->sizeData != lMsg->width * lMsg->height * 3)
+        lMsg->sizeData = (msg->image).size();
+        lMsg->compressionType = msg->compressionRatio;
+
+        if(lMsg->sizeData != lMsg->width * lMsg->height * 3 && lMsg->compressionType != 0)
         {
             ROS_WARN(
                 "Incoherence de taille des buffers de camera (taille prevue : %d, obtenue : %d",
@@ -244,7 +244,7 @@ void dataCamReceived(const sensor_msgs::Image::ConstPtr &msg)
         }
 
         bufferImg = new char[lMsg->sizeData];
-        for(unsigned int i = 0; i < lMsg->sizeData; i++) bufferImg[i] = msg->data[i];
+        for(unsigned int i = 0; i < lMsg->sizeData; i++) bufferImg[i] = msg->image[i];
         lMsg->cptr = bufferImg;
         (*lClientIt).second.subscribers[MSGID_WEBCAM].second.push((void *) lMsg);
         lMsg = NULL;
@@ -281,8 +281,9 @@ void dataStereoCamReceived(const ros4mat::M_StereoCam::ConstPtr &image)
         lMsg->height_R = image->height;
         lMsg->channels = 3;
         lMsg->sizeData_L = (image->image_left).size();
-        lMsg->sizeData_R = (image->image_left).size();
-        if(lMsg->sizeData_L != lMsg->width_L * lMsg->height_L * 3)
+        lMsg->sizeData_R = (image->image_right).size();
+        lMsg->compressionType = image->compressionRatio;
+        if(lMsg->sizeData_L != lMsg->width_L * lMsg->height_L * 3 && lMsg->compressionType != 0)
         {
             ROS_WARN(
                 "Incoherence de taille des buffers de camera (taille prevue : %d, obtenue : %d",
@@ -291,7 +292,7 @@ void dataStereoCamReceived(const ros4mat::M_StereoCam::ConstPtr &image)
             );
         }
 
-        if((image->image_left).size() != (image->image_right).size())
+        if((image->image_left).size() != (image->image_right).size() && lMsg->compressionType != 0)
         {
             ROS_WARN(
                 "Incoherence de taille entre camera gauche et droite (gauche : %d, droite : %d )",
@@ -733,7 +734,7 @@ int subscribeTo(char typeCapteur, uint32_t bufferSize, char* info, bool subOnly,
             }
         }
 
-        sub = nodeRos.subscribe("/image_raw", 2 * SOCKET_SEND_TIMEOUT_SEC * 30, dataCamReceived);
+        sub = nodeRos.subscribe("/D_Cam/data", 2 * SOCKET_SEND_TIMEOUT_SEC * 30, dataCamReceived);
         break;
 
     case MSGID_WEBCAM_STEREO:
