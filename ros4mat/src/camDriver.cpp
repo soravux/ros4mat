@@ -23,8 +23,11 @@
 #include <string>
 #include <sstream>
 #include <cmath>
+#include <ros4mat/M_Cam.h>
 #include <ros4mat/S_Cam.h>
 #include <sensor_msgs/Image.h>
+
+#include "jpge.h"       // Compression JPG. On ne peut pas utiliser celle de image_transport pour certaines raisons
 
 
 bool initialised = false;
@@ -32,8 +35,45 @@ bool running = false;
 
 ros::Rate* loop_rate = 0;		// Pointeur car ne peut pas etre initialise avant ros::init()
 ros::NodeHandle* n = 0;
-int nbrSubscribers = 0, nbrStereoSubscribers = 0;
+ros::Publisher camPublisher;
+int nbrSubscribers = 0;
+unsigned int dataId = 0;
+unsigned char compression = 0;
 
+
+void dataCamSync(const sensor_msgs::Image::ConstPtr& image){
+	ros4mat::M_Cam msg;
+	msg.header.seq = dataId++;
+	msg.header.stamp = ros::Time::now();
+	msg.width = image->width;
+	msg.height = image->height;
+	msg.channels = 3;
+	msg.timestamp = image->header.stamp.toSec();
+
+	if(compression == 0){	// No compression
+		msg.image = image->data;
+	}
+	else{
+		// JPEG compression
+		unsigned char *dataImg = new unsigned char[msg.width*msg.height*msg.channels];
+		for(unsigned int i=0; i < image->data.size(); i++)
+			dataImg[i] = image->data[i];
+
+		unsigned char *bufjpeg = new unsigned char[msg.width*msg.height*msg.channels];
+		int outsize = msg.width*msg.height*msg.channels;
+		struct jpge::params paramsCompression = jpge::params();
+		paramsCompression.m_quality = (int)compression;
+
+		bool ok = jpge::compress_image_to_jpeg_file_in_memory(bufjpeg, outsize, msg.width, msg.height, msg.channels, dataImg, paramsCompression);
+
+		for(unsigned int i=0; i < outsize; i++)
+			msg.image.push_back(bufjpeg[i]);
+		delete[] bufjpeg;
+		delete[] dataImg;
+	}
+
+	camPublisher.publish(msg);
+}
 
 bool newConfReceived(ros4mat::S_Cam::Request& request, ros4mat::S_Cam::Response& response){
 	int ret = 0;
@@ -67,7 +107,14 @@ bool newConfReceived(ros4mat::S_Cam::Request& request, ros4mat::S_Cam::Response&
 		ROS_INFO("Lancement de la commande : %s", ssRequest.str().c_str());
 		ret = system(ssRequest.str().c_str());
 		ROS_INFO("Fin de la commande (status %i)", ret);
+
+		compression = request.compressionRatio;
 		
+		if(nbrSubscribers == 1){
+			ROS_INFO("Pas de publisher disponible, creation de celui-ci...");
+			camPublisher = n->advertise<ros4mat::M_Cam>("D_Cam/data", request.camBufferSize);
+		}
+
 		*loop_rate = ros::Rate((double)request.fps);
 		running = true;
 		

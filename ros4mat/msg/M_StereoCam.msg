@@ -9,4 +9,5 @@ uint8[] image_right       # Taille = width*height*channels
 # et que le deuxieme (coordonnees (1,0)) a les valeurs RGB (12, 87, 149),
 # alors image contiendra :
 # [240, 32, 111, 12, 87, 149, ... (longueur d'une ligne = width), 1er pixel de la seconde ligne, etc.)]
+uint8 compressionRatio
 float64 timestamp
