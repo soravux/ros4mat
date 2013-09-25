@@ -73,7 +73,7 @@ typedef struct paramsAdc paramsAdc;
 struct paramsAdc{
     unsigned short freqAcquisition; /* Frequence d'acquisition en Hz */
     unsigned short freqSend;        /* Frequence d'envoi en Hz */
-    char channels;                  /* Canaux actives; chaque bit active un canal */
+    unsigned char channels;         /* Canaux actives; chaque bit active un canal */
 } PACKEDSTRUCT;
 
 typedef struct paramsImu paramsImu;
