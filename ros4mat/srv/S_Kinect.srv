@@ -3,7 +3,7 @@ uint16 width_rgb
 uint16 height_rgb
 uint16 width_depth
 uint16 height_depth
-uint8 fps
+uint16 fps
 uint16 kinectBufferSize
 uint8 compressionRatio
 ---
