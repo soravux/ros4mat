@@ -46,6 +46,8 @@
 #include <ros4mat/S_Battery.h>
 #include <ros4mat/M_Computer.h>
 #include <ros4mat/S_Computer.h>
+#include <ros4mat/M_Kinect.h>
+#include <ros4mat/S_Kinect.h>
 #include <ros4mat/S_Cam.h>
 #include <ros4mat/M_StereoCam.h>
 #include <ros4mat/S_StereoCam.h>
@@ -462,90 +464,50 @@ void dataHokuyoReceived(const sensor_msgs::LaserScan::ConstPtr &msg)
 }
 
 
-void dataKinectDepthReceived(const sensor_msgs::Image::ConstPtr &msg)
+void dataKinectReceived(const ros4mat::M_Kinect::ConstPtr &msg)
 {
-    char                                    *bufferImg;
+    char                                    *bufferRgb, *bufferDepth;
     std::map<uint32_t, matlabClient>::iterator   lClientIt;
-    msgCamInternal                          *lMsg = NULL;
+    msgKinectInternal                          *lMsg = NULL;
 
     for(lClientIt = clients.begin(); lClientIt != clients.end(); lClientIt++)
     {
-        if((*lClientIt).second.subscribers.count(MSGID_KINECT_DEPTH) == 0) continue;
-        lMsg = new msgCamInternal;
-        lMsg->timestamp = msg->header.stamp.toSec();
-        lMsg->width = msg->width;
-        lMsg->height = msg->height;
-        lMsg->channels = 1;
-        lMsg->sizeData = (msg->data).size();
+        if((*lClientIt).second.subscribers.count(MSGID_KINECT) == 0) continue;
+        lMsg = new msgKinectInternal;
+        lMsg->infoRGB.timestamp = msg->header.stamp.toSec();
+        lMsg->infoDepth.timestamp = msg->header.stamp.toSec();
 
-        if(lMsg->sizeData != lMsg->width * lMsg->height * 1 * 2)
+        lMsg->infoRGB.width = msg->width_rgb;
+        lMsg->infoRGB.height = msg->height_rgb;
+        lMsg->infoRGB.channels = 3;
+        lMsg->infoRGB.sizeData = (msg->rgb).size();
+
+        lMsg->infoDepth.sizeData = (msg->depth).size();
+
+        /*if(lMsg->sizeData != lMsg->width * lMsg->height * 1 * 2)
         {   // * 2 parce que ce sont des uint16
             ROS_WARN(
                 "Incoherence de taille des buffers de camera (taille prevue : %d, obtenue : %d",
                 lMsg->width * lMsg->height * 1 * 2,
                 lMsg->sizeData
             );
-        }
-
-        bufferImg = new char[lMsg->sizeData];
-        for(unsigned int i = 0; i < lMsg->sizeData; i++)
+        }*/
+        
+        // TODO : Ne transmettre que les images demandees (p. ex. pas de RGB)
+        bufferRgb = new char[lMsg->infoRGB.sizeData];
+        bufferDepth = new char[lMsg->infoDepth.sizeData];
+        for(unsigned int i = 0; i < lMsg->infoRGB.sizeData; i++)
         {
-            bufferImg[i] = msg->data[i];
+            bufferRgb[i] = (msg->rgb)[i];
         }
-
-        lMsg->cptr = bufferImg;
-
-        // Add to the buffer
-        (*lClientIt).second.subscribers[MSGID_KINECT_DEPTH].second.push((void *) lMsg);
-        lMsg = NULL;
-
-        // Pruning obsolete data
-        while (
-            (*lClientIt).second.subscribers[MSGID_KINECT_DEPTH].second.size() >
-                (*lClientIt).second.buffersInfo[MSGID_KINECT_DEPTH]
-        )
+        for(unsigned int i = 0; i < lMsg->infoDepth.sizeData; i++)
         {
-            delete[]((msgCamInternal *) (*lClientIt).second.subscribers[MSGID_KINECT_DEPTH].second.front())->cptr;
-            delete(msgCamInternal *) ((*lClientIt).second.subscribers[MSGID_KINECT_DEPTH].second.front());
-            (*lClientIt).second.subscribers[MSGID_KINECT_DEPTH].second.pop();
-        }
-    }
-}
-
-
-void dataKinectRGBReceived(const sensor_msgs::Image::ConstPtr &msg)
-{
-    char                                    *bufferImg;
-    std::map<uint32_t, matlabClient>::iterator   lClientIt;
-    msgCamInternal                          *lMsg = NULL;
-
-    for(lClientIt = clients.begin(); lClientIt != clients.end(); lClientIt++)
-    {
-        if((*lClientIt).second.subscribers.count(MSGID_KINECT) == 0) continue;
-        lMsg = new msgCamInternal;
-        lMsg->timestamp = msg->header.stamp.toSec();
-        lMsg->width = msg->width;
-        lMsg->height = msg->height;
-        lMsg->channels = 4;
-        lMsg->sizeData = (msg->data).size() + 640 * 480 * sizeof(uint16_t); /* Add Depth to packet when sending */
-
-        if((msg->data).size() != lMsg->width * lMsg->height * 3)
-        {
-            ROS_WARN(
-                "Incoherence de taille des buffers de camera (taille prevue : %d, obtenue : %d",
-                lMsg->width * lMsg->height * 3,
-                (msg->data).size()
-            );
+            // Hum, c'est pas en uint16??
+            bufferDepth[i] = (msg->depth)[i];
         }
 
-        // Only populate the RGB part of the MSGID_KINECT buffer. The depth part will be taken directly from MSGID_KINECT_DEPTH buffer
-        bufferImg = new char[(msg->data).size()];
-        for(unsigned int i = 0; i < (msg->data).size(); i++)
-        {
-            bufferImg[i] = msg->data[i];
-        }
-
-        lMsg->cptr = bufferImg;
+        lMsg->infoRGB.cptr = bufferRgb;
+        lMsg->infoDepth.cptr = bufferDepth;
 
         // Add to the buffer
         (*lClientIt).second.subscribers[MSGID_KINECT].second.push((void *) lMsg);
@@ -557,13 +519,14 @@ void dataKinectRGBReceived(const sensor_msgs::Image::ConstPtr &msg)
                 (*lClientIt).second.buffersInfo[MSGID_KINECT]
         )
         {
-            ROS_INFO_ONCE("Beginning PRUNING kinect RGB data");
-            delete[]((msgCamInternal *) (*lClientIt).second.subscribers[MSGID_KINECT].second.front())->cptr;
-            delete(msgCamInternal *) ((*lClientIt).second.subscribers[MSGID_KINECT].second.front());
+            delete[] ((msgKinectInternal *) (*lClientIt).second.subscribers[MSGID_KINECT].second.front())->infoRGB.cptr;
+            delete[] ((msgKinectInternal *) (*lClientIt).second.subscribers[MSGID_KINECT].second.front())->infoDepth.cptr;
+            delete(msgKinectInternal *) ((*lClientIt).second.subscribers[MSGID_KINECT].second.front());
             (*lClientIt).second.subscribers[MSGID_KINECT].second.pop();
         }
     }
 }
+
 
 
 // subscribeTo(lSubscribe.typeCapteur, lSubscribe.bufferSize, bufferSubscribe, lSubscribe.silentSubscribe == 1, nodeRos, clients[lHeader.clientId]);
@@ -580,6 +543,7 @@ int subscribeTo(char typeCapteur, uint32_t bufferSize, char* info, bool subOnly,
     ros4mat::S_Battery      lParamsSetBat;
     ros4mat::S_Cam          lParamsSetCam;
     ros4mat::S_StereoCam    lParamsSetStereoCam;
+    ros4mat::S_Kinect       lParamsSetKinect;
     ros4mat::S_Computer     lParamsSetComputer;
 
     if(subOnly){
@@ -822,8 +786,43 @@ int subscribeTo(char typeCapteur, uint32_t bufferSize, char* info, bool subOnly,
 
     case MSGID_KINECT:
         memcpy(info, &lStructKinect, sizeof(lStructKinect));
-        sub = nodeRos.subscribe("/depth/image_raw", 2 * SOCKET_SEND_TIMEOUT_SEC * 10, dataKinectDepthReceived);
-        sub = nodeRos.subscribe("/rgb/image_raw", 2 * SOCKET_SEND_TIMEOUT_SEC * 10, dataKinectRGBReceived);
+        if(subOnly)
+        {
+            lParamsSetKinect.request.subscribe = true;
+            lParamsSetKinect.request.width_rgb = 0;
+            lParamsSetKinect.request.height_rgb = 0;
+            lParamsSetKinect.request.width_depth = 0;
+            lParamsSetKinect.request.height_depth = 0;
+            lParamsSetKinect.request.fps = 0;
+            ROS_INFO("Envoi de la requete au service");
+            if(!ros::service::call("/D_Kinect/params", lParamsSetKinect))
+            {
+                ROS_ERROR(
+                    "Le service de parametrage de la kinect a renvoye une erreur (code %d).",
+                    lParamsSetKinect.response.ret
+                );
+                return -1;
+            }
+        }
+        else
+        {
+            lParamsSetKinect.request.subscribe = true;
+            lParamsSetKinect.request.width_rgb = lStructKinect.widthRGB;
+            lParamsSetKinect.request.height_rgb = lStructKinect.heightRGB;
+            lParamsSetKinect.request.width_depth = lStructKinect.widthRGB;
+            lParamsSetKinect.request.height_depth = lStructKinect.heightRGB;
+            lParamsSetKinect.request.fps = lStructKinect.fpsRGB;
+            ROS_INFO("Envoi de la requete au service");
+            if(!ros::service::call("/D_Kinect/params", lParamsSetKinect))
+            {
+                ROS_ERROR(
+                    "Le service de parametrage de la kinect a renvoye une erreur (code %d).",
+                    lParamsSetKinect.response.ret
+                );
+                return -1;
+            }
+        }
+        sub = nodeRos.subscribe("/D_Kinect/data", 2 * SOCKET_SEND_TIMEOUT_SEC * 10, dataKinectReceived);
         break;
 
     case MSGID_COMPUTER:
