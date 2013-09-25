@@ -104,9 +104,6 @@ bool newConfKinect(ros4mat::S_Kinect::Request& request, ros4mat::S_Kinect::Respo
             return true;
         }
 
-        
-
-
 		if(nbrKinectSubscribers == 1){
 			ROS_INFO("Pas de publisher disponible, creation de celui-ci...");
 			kinectPublisher = n->advertise<ros4mat::M_Kinect>("D_Kinect/data", request.kinectBufferSize);
@@ -156,9 +153,9 @@ int main(int argc, char* argv[])
         /* Connecting to a maybe-not-already-published topic. This hack is to handle the sync()
         variable that seems to fall out of scope in the external function. */
 		message_filters::Subscriber<sensor_msgs::Image> imageRGB_sub(*n, "/rgb/image_raw", 10);
-        message_filters::Subscriber<sensor_msgs::Image> imageDepth_sub(*n, "/depth/image_raw", 10);
+        message_filters::Subscriber<sensor_msgs::Image> imageDepth_sub(*n, "/depth_registered/image_raw", 10);
 
-        // ApproximateTime takes a queue size as its constructor argument, hence MySyncPolicy(10)
+        // ApproximateTime takes a queue size as its constructor argument, hence MySyncPolicy(10)8
         message_filters::Synchronizer<MySyncPolicy> sync(MySyncPolicy(10), imageRGB_sub, imageDepth_sub);
 
         sync.registerCallback(boost::bind(dataKinectSync, _1, _2));
