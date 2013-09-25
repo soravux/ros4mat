@@ -48,6 +48,7 @@
 #include <ros4mat/S_Computer.h>
 #include <ros4mat/M_Kinect.h>
 #include <ros4mat/S_Kinect.h>
+#include <ros4mat/M_Cam.h>
 #include <ros4mat/S_Cam.h>
 #include <ros4mat/M_StereoCam.h>
 #include <ros4mat/S_StereoCam.h>
@@ -62,7 +63,6 @@
 
 #include "../../exchangeStructs.h"
 #include "../../thirdparty/easyzlib.h"
-#include "jpge.h"       // Compression JPG. On ne peut pas utiliser celle de image_transport pour certaines raisons
 
 #define SOCKET_ERROR    -1
 

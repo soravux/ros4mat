@@ -40,7 +40,7 @@ ros::NodeHandle* n = 0;
 ros::Publisher stereoPublisher;
 int nbrStereoSubscribers = 0;
 unsigned int dataId = 0;
-
+unsigned char compression = 0;
 
 typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image> MySyncPolicy;	
 
