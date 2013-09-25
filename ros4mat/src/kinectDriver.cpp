@@ -31,6 +31,8 @@
 #include <message_filters/sync_policies/approximate_time.h>
 #include <sensor_msgs/Image.h>
 
+#include "jpge.h"       // Compression JPG. On ne peut pas utiliser celle de image_transport pour certaines raisons
+
 
 bool initialised = false;
 bool running = false;
@@ -40,6 +42,7 @@ ros::NodeHandle* n = 0;
 ros::Publisher kinectPublisher;
 int nbrKinectSubscribers = 0;
 unsigned int dataId = 0;
+unsigned char compression = 0;
 
 
 typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image> MySyncPolicy;	
@@ -56,7 +59,31 @@ void dataKinectSync(const sensor_msgs::Image::ConstPtr& imageRGB, const sensor_m
 
 	msg.timestamp = imageDepth->header.stamp.toSec();
 
-	msg.rgb = imageRGB->data;
+
+	msg.compressionRatio = compression;
+
+	if(compression == 0){	// No compression
+		msg.rgb = imageRGB->data;
+	}
+	else{
+		// JPEG compression
+		unsigned char *dataImg = new unsigned char[msg.width_rgb*msg.height_rgb*msg.channels];
+		for(unsigned int i=0; i < imageRGB->data.size(); i++)
+			dataImg[i] = imageRGB->data[i];
+
+		unsigned char *bufjpeg = new unsigned char[msg.width_rgb*msg.height_rgb*msg.channels];
+		int outsize = msg.width_rgb*msg.height_rgb*msg.channels;
+		struct jpge::params paramsCompression = jpge::params();
+		paramsCompression.m_quality = (int)compression;
+
+		bool ok = jpge::compress_image_to_jpeg_file_in_memory(bufjpeg, outsize, msg.width_rgb, msg.height_rgb, msg.channels, dataImg, paramsCompression);
+
+		for(unsigned int i=0; i < outsize; i++)
+			msg.rgb.push_back(bufjpeg[i]);
+		delete[] bufjpeg;
+		delete[] dataImg;
+	}
+
 	msg.depth = imageDepth->data;
 
 	kinectPublisher.publish(msg);
@@ -89,6 +116,7 @@ bool newConfKinect(ros4mat::S_Kinect::Request& request, ros4mat::S_Kinect::Respo
 		*loop_rate = ros::Rate((double)request.fps);
 		running = true;
 
+		compression = request.compressionRatio;
 
 
 		
