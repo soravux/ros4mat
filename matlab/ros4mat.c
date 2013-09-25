@@ -492,6 +492,7 @@ void logico_subscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]
 
     /* Initialize struct variables to zero. */
     memset(&lSubscribeMessage, 0, sizeof(msgSubscribe));
+    memset(&lParameters, 0, sizeof(subscriptionParameters));
 
     /* Step 1: Find which type of sensor we'ere subscribing to */
     if (initialized == 0) { mexErrMsgTxt("No connection established."); }
@@ -578,6 +579,7 @@ void logico_subscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]
             }
             lParameters.cam.width *= 20;
             lParameters.cam.height = lParameters.cam.width * 3 / 4;
+            lParameters.cam.fps = (uint16_t) mxGetScalar(prhs[1]);
 
             break;
 
@@ -1004,7 +1006,7 @@ void logico_camera(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     for(i = 0; i < lHeader.size; i++)
     {
         format_camera_image(
-            (msgCam*)msg + sizeof(msgHeader) + i * sizeof(msgCam),
+            (msgCam*)(msg + sizeof(msgHeader) + i * sizeof(msgCam)),
             image_in_msg,
             i,
             out_data,
