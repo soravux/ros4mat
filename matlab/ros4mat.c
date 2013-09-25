@@ -1243,7 +1243,6 @@ void logico_hokuyo(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     hokuyo_size[0] = lHokuyo.sizeData / sizeof(float);
     hokuyo_size[1] = lHeader.size;
 
-    /*mexPrintf("Hokuyo size by calc %f and by ref %i", (lHokuyo.angleMax - lHokuyo.angleMin) / lHokuyo.angleIncrement, lHokuyo.sizeData);*/
     plhs[0] = mxCreateNumericArray(2, hokuyo_size, mxSINGLE_CLASS, mxREAL);
     plhs[1] = mxCreateDoubleMatrix(1, lHeader.size, mxREAL);
     plhs[2] = mxCreateDoubleMatrix(1, 6, mxREAL);
@@ -1254,7 +1253,6 @@ void logico_hokuyo(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
     for(i = 0; i < lHeader.size; i++)
     {
-        /* On passe sur tous les echantillons */
         memcpy(&lHokuyo, msg + sizeof(msgHeader) + i * sizeof(msgHokuyo), sizeof(msgHokuyo));
         memcpy(
             out_data + i * hokuyo_size[0] * sizeof(float),
