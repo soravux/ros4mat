@@ -1342,7 +1342,7 @@ int main(int argc, char **argv)
 
 
                     // Message reception
-                    if(lHeader.uncompressSize > 0){
+                    if(lHeader.size > 0){
                         msg = new char[lHeader.uncompressSize];
                         recvReturn = recv(i, msg, lHeader.uncompressSize, MSG_WAITALL);
                         if(recvReturn == -1)
@@ -1368,6 +1368,9 @@ int main(int argc, char **argv)
                             delete[] msg;
                             continue;
                         }
+                    }
+                    else{
+                        ROS_WARN("No data send after header");
                     }
 
 
