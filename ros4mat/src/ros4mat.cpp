@@ -1342,30 +1342,32 @@ int main(int argc, char **argv)
 
 
                     // Message reception
-                    msg = new char[lHeader.uncompressSize];
-                    recvReturn = recv(i, msg, lHeader.uncompressSize, MSG_WAITALL);
-                    if(recvReturn == -1)
-                    {
-                        // Timeout
-                        ROS_ERROR(
-                            "Timeout on message reception (header correctly received) : %db received, %db expected!",
-                            recvReturn,
-                            lHeader.uncompressSize
-                        );
-                        delete[] msg;
-                        continue;
-                    }
-                    else if(recvReturn == 0)
-                    {
-                        ROS_ERROR("Connection closed by client");
-                        unsubscribeAll(lHeader.clientId);
+                    if(lHeader.uncompressSize > 0){
+                        msg = new char[lHeader.uncompressSize];
+                        recvReturn = recv(i, msg, lHeader.uncompressSize, MSG_WAITALL);
+                        if(recvReturn == -1)
+                        {
+                            // Timeout
+                            ROS_ERROR(
+                                "Timeout on message reception (header correctly received) : %db received, %db expected!",
+                                recvReturn,
+                                lHeader.uncompressSize
+                            );
+                            delete[] msg;
+                            continue;
+                        }
+                        else if(recvReturn == 0)
+                        {
+                            ROS_ERROR("Connection closed by client");
+                            unsubscribeAll(lHeader.clientId);
 
-                        // Node unsubscribtion
-                        clients.erase(lHeader.clientId);
-                        close(i);
-                        FD_CLR(i, &active_fd_set);
-                        delete[] msg;
-                        continue;
+                            // Node unsubscribtion
+                            clients.erase(lHeader.clientId);
+                            close(i);
+                            FD_CLR(i, &active_fd_set);
+                            delete[] msg;
+                            continue;
+                        }
                     }
 
 
