@@ -487,6 +487,9 @@ void dataKinectReceived(const ros4mat::M_Kinect::ConstPtr &msg)
         lMsg->infoDepth.height = msg->height_depth;
         lMsg->infoDepth.sizeData = (msg->depth).size();
 
+        lMsg->infoRGB.compressionType = msg->compressionRatio;
+        lMsg->infoDepth.compressionType = 0;
+
         /*if(lMsg->sizeData != lMsg->width * lMsg->height * 1 * 2)
         {   // * 2 parce que ce sont des uint16
             ROS_WARN(
@@ -888,6 +891,7 @@ int unsubscribeTo(msgUnsubscribe *info, matlabClient &in_client, bool deleteInMa
     ros4mat::S_Cam          lParamsUnsetCam;
     ros4mat::S_StereoCam    lParamsUnsetStereoCam;
     ros4mat::S_Computer     lParamsUnsetComputer;
+    ros4mat::S_Kinect       lParamsUnsetKinect;
 
     ROS_INFO("Reception d'une demande de desinscription pour le capteur %02X", info->typeCapteur);
     if(in_client.subscribers.count(info->typeCapteur) == 0)
@@ -958,9 +962,21 @@ int unsubscribeTo(msgUnsubscribe *info, matlabClient &in_client, bool deleteInMa
         }
         break;
 
+    case MSGID_KINECT:
+        lParamsUnsetKinect.request.subscribe = false;
+        if(!ros::service::call("/D_Kinect/params", lParamsUnsetKinect))
+        {
+            ROS_ERROR(
+                "Le service de parametrage de la Kinect a renvoye une erreur (code %d) lors de la deconnexion.",
+                lParamsUnsetKinect.response.ret
+            );
+            return -1;
+        }
+        break;
+
+
     case MSGID_GPS:
     case MSGID_HOKUYO:
-    case MSGID_KINECT_DEPTH:
         break;
 
     default:
@@ -969,10 +985,16 @@ int unsubscribeTo(msgUnsubscribe *info, matlabClient &in_client, bool deleteInMa
 
     while(!in_client.subscribers[info->typeCapteur].second.empty())
     {
-        if(info->typeCapteur == MSGID_WEBCAM)
+        if(info->typeCapteur == MSGID_WEBCAM){
             delete[]((msgCamInternal *) (in_client.subscribers[info->typeCapteur].second.front()))->cptr;
-        else if(info->typeCapteur == MSGID_HOKUYO)
+        }
+        else if(info->typeCapteur == MSGID_HOKUYO){
             delete[]((msgHokuyoInternal *) (in_client.subscribers[info->typeCapteur].second.front()))->cptr;
+        }
+        else if(info->typeCapteur == MSGID_KINECT){
+            delete[] ((msgKinectInternal *) (*lClientIt).second.subscribers[info->typeCapteur].second.front())->infoRGB.cptr;
+            delete[] ((msgKinectInternal *) (*lClientIt).second.subscribers[info->typeCapteur].second.front())->infoDepth.cptr;
+        }
 
         delete in_client.subscribers[info->typeCapteur].second.front();
         in_client.subscribers[info->typeCapteur].second.pop();
