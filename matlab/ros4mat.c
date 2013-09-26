@@ -1104,9 +1104,9 @@ void logico_camera_stereo(int nlhs, mxArray *plhs[], int nrhs, const mxArray *pr
     out_data_r = (unsigned char *) mxGetData(plhs[1]);
     out_data_ts = (double *) mxGetPr(plhs[2]);
 
-    msg_pos = sizeof(msgHeader) + sizeof(msgCam) * lHeader.size;
+    msg_pos = sizeof(msgHeader) + sizeof(msgCam) * lHeader.size * 2;
 
-    for(i = 0; i < lHeader.size; i += 2)
+    for(i = 0; i < lHeader.size * 2; i += 2)
     {
         /* On passe sur toutes les images */
         memcpy(&lCam_l, msg + sizeof(msgHeader) + (i + 0) * sizeof(msgCam), sizeof(msgCam));
@@ -1121,10 +1121,10 @@ void logico_camera_stereo(int nlhs, mxArray *plhs[], int nrhs, const mxArray *pr
         switch (lCam_l.compressionType) {
             case MSGID_WEBCAM_NOCOMPRESSION:
                 /* Set the pixel source pointer directly to the message header */
-                inPixelSource_l = &msg[sizeof(msgHeader)               /* Skip the packet header */
-                                       + sizeof(msgCam) * lHeader.size /* Skip the msgCam Header */
-                                       + sizeImg * i];           /* Skip previous images */
-                inPixelSource_r = inPixelSource_l + sizeImg; /* One image further */
+                inPixelSource_l = msg + msg_pos;
+                msg_pos += lCam_l.sizeData;
+                inPixelSource_r = msg + msg_pos;
+                msg_pos += lCam_r.sizeData;
                 break;
             default:
                 /* Decompress the image first and set the pixel source pointer to it */
@@ -1142,7 +1142,7 @@ void logico_camera_stereo(int nlhs, mxArray *plhs[], int nrhs, const mxArray *pr
             for(x = y, a = b; x < y + lCam_l.width * 3; a += lCam_l.height)
             {
                 /* Handling both images at the same time. First R left, then R right, then G left... */
-                #define DESTINATION_STRIDE_STEREO     a + i * sizeImg + lCam_l.width * lCam_l.height
+                #define DESTINATION_STRIDE_STEREO     a + i * sizeImg / 2 + lCam_l.width * lCam_l.height
                 out_data_l[DESTINATION_STRIDE_STEREO * 0] = inPixelSource_l[x];
                 out_data_r[DESTINATION_STRIDE_STEREO * 0] = inPixelSource_r[x++];
                 out_data_l[DESTINATION_STRIDE_STEREO * 1] = inPixelSource_l[x];
