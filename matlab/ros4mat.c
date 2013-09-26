@@ -555,10 +555,16 @@ void logico_subscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]
             if (nrhs > 6) {
                 lParameters.stereocam.idRight = (unsigned char) mxGetScalar(prhs[6]);
             }
+            lParameters.cam.compression = (unsigned char) mxGetScalar(prhs[7]);
             /* I'm sorry! :( */
             goto parse_resolution;
         case MSGID_WEBCAM:
             if (!lParamSize) { lParamSize = sizeof(paramsCamera); }
+            if (nrhs > 6) {
+                lParameters.cam.compression = (unsigned char) mxGetScalar(prhs[6]);
+            } else {
+                lParameters.cam.compression = MSGID_WEBCAM_NOCOMPRESSION;
+            }
         case MSGID_KINECT:
             if (!lParamSize) { lParamSize = sizeof(paramsKinect); }
 
@@ -663,8 +669,9 @@ msgHeader logico_send_data_request(char inType, char **msg, unsigned int inStruc
     unsigned int    recvBytes = 0;
     struct timeval  timeout;
 
-    flush_reception_buffer();
     FD_ZERO(&read_fds);
+
+    flush_reception_buffer();
 
     /* Send an empty packet requesting for the desired sensor */
     send_message(inType, 0, 0, 0);
@@ -813,50 +820,53 @@ void logico_serial(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
     char            *msg = NULL;
     msgHeader       lHeader;
-    msgSerialCmd    lSerie;
     msgSerialAns    lSerieAns;
     int             h, lPortSize;
     char            *out_data;
 
     if (initialized == 0) mexErrMsgTxt("No connection established.");
+    setbuf(stdout, NULL);
 
-    /* Parse parameters */
-
-    lSerie.speed = (unsigned short) mxGetScalar(prhs[1]);
-    lSerie.parity = (char) mxGetScalar(prhs[2]);
-    lSerie.stopBits = (char) mxGetScalar(prhs[3]);
-    lSerie.sendLength = (short) mxGetScalar(prhs[5]);
-    lSerie.readLength = (short) mxGetScalar(prhs[6]);
-    lSerie.readTimeoutSec = (short) mxGetScalar(prhs[7]);
-    lSerie.readTimeoutMicro = (long) mxGetScalar(prhs[8]);
-    lSerie.closeAfterComm = (char) mxGetScalar(prhs[9]);
-
-    /* Get payload size (port name + data to send) and generate a buffer long enough*/
+    /* Get payload size (port name + data to send) and generate a buffer long enough */
     lPortSize = mxGetN(prhs[0]) * sizeof(mxChar) + 1;
     msg = (char *) mxCalloc(1, sizeof(msgSerialCmd) + lPortSize + (short) mxGetScalar(prhs[5]));
 
-    /* Copy payload to the message. */
+    /* Parse parameters */
+    ((msgSerialCmd*)msg)->speed = (unsigned short) mxGetScalar(prhs[1]);
+    ((msgSerialCmd*)msg)->parity = (char) mxGetScalar(prhs[2]);
+    ((msgSerialCmd*)msg)->stopBits = (char) mxGetScalar(prhs[3]);
+    ((msgSerialCmd*)msg)->sendLength = (short) mxGetScalar(prhs[5]);
+    ((msgSerialCmd*)msg)->readLength = (short) mxGetScalar(prhs[6]);
+    ((msgSerialCmd*)msg)->readTimeoutSec = (short) mxGetScalar(prhs[7]);
+    ((msgSerialCmd*)msg)->readTimeoutMicro = (long) mxGetScalar(prhs[8]);
+    ((msgSerialCmd*)msg)->closeAfterComm = (char) mxGetScalar(prhs[9]);
 
+    printf("%u\n", lPortSize);
+
+    /* Copy payload to the message. */
     if (mxGetString(prhs[0], msg + sizeof(msgSerialCmd), (mwSize)lPortSize)) {
         mexErrMsgTxt("Could not understand port name.");
     }
 
-    /*for(h = 0; h < lSerie.sendLength * 2; h += 2) {
-        lSerie.data[h / 2] = ((unsigned char *) mxGetChars(prhs[4]))[h];
-    }*/
-    if (mxGetString(prhs[4], msg + sizeof(msgSerialCmd) + lPortSize, (mwSize)lSerie.sendLength)) {
-        mexErrMsgTxt("Could not understand data to send.");
+    printf("Pointer: %p size: %u\n", msg, sizeof(msgSerialCmd) + lPortSize + (short) mxGetScalar(prhs[5]));
+    for(h = 0; h < ((msgSerialCmd*)msg)->sendLength * 2; h += 2) {
+        printf("convert: %c\n", ((unsigned char *) mxGetChars(prhs[4]))[h]);
+        printf("%p", (msg + sizeof(msgSerialCmd) + lPortSize + (h / 2)));
+        *(msg + sizeof(msgSerialCmd) + lPortSize + (h / 2)) = ((unsigned char *) mxGetChars(prhs[4]))[h];
     }
+    printf("%s\n", *(msg + sizeof(msgSerialCmd)));
+    /*lDataSize = mxGetN(prhs[4]) * sizeof(mxChar) + 1;
+    printf("%u\n", lDataSize);*/
+    /*if (mxGetString(prhs[4], msg + sizeof(msgSerialCmd) + lDataSize, (mwSize)lSerie.sendLength)) {
+        mexErrMsgTxt("Could not understand data to send.");
+    }*/
 
-    memcpy(msg, &lSerie, sizeof(msgSerialCmd));
-
-    /*send(*main_socket, msg, sizeof(msgHeader) + sizeof(msgSerialCmd), 0); */
     /* Send the message */
     send_message(
         MSGID_SERIAL_CMD,
         1,
         msg,
-        sizeof(msgSerialCmd) + lPortSize + lSerie.sendLength
+        sizeof(msgSerialCmd) + lPortSize + ((msgSerialCmd*)msg)->sendLength
     );
 
     recv(*main_socket, msg, sizeof(msgHeader), MSG_PEEK);
@@ -869,7 +879,7 @@ void logico_serial(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
     recv(*main_socket, msg, sizeof(msgHeader) + lHeader.size * sizeof(msgSerialAns), 0);
 
-    /* Formattage pour Matlab */
+    /* Matlab formatting */
     memcpy(&lSerieAns, msg + sizeof(msgHeader) + sizeof(msgSerialAns), sizeof(msgSerialAns));
     out_data = mxCalloc(lSerieAns.dataLength, sizeof(char));
     plhs[0] = mxCreateString(out_data);
