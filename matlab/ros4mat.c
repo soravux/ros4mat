@@ -1212,7 +1212,7 @@ void logico_kinect(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     out_data_depth = (unsigned short *) mxGetData(plhs[1]);
     out_data_ts = (double *) mxGetPr(plhs[2]);
 
-    image_in_msg = msg + sizeof(msgHeader) + sizeof(msgCam) * lHeader.size;
+    image_in_msg = msg + sizeof(msgHeader) + sizeof(msgKinect) * lHeader.size;
 
     for(i = 0; i < lHeader.size; i++)
     {
