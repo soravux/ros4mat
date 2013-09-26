@@ -848,13 +848,9 @@ void logico_serial(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         mexErrMsgTxt("Could not understand port name.");
     }
 
-    printf("Pointer: %p size: %u\n", msg, sizeof(msgSerialCmd) + lPortSize + (short) mxGetScalar(prhs[5]));
     for(h = 0; h < ((msgSerialCmd*)msg)->sendLength * 2; h += 2) {
-        printf("convert: %c\n", ((unsigned char *) mxGetChars(prhs[4]))[h]);
-        printf("%p", (msg + sizeof(msgSerialCmd) + lPortSize + (h / 2)));
         *(msg + sizeof(msgSerialCmd) + lPortSize + (h / 2)) = ((unsigned char *) mxGetChars(prhs[4]))[h];
     }
-    printf("%s\n", *(msg + sizeof(msgSerialCmd)));
     /*lDataSize = mxGetN(prhs[4]) * sizeof(mxChar) + 1;
     printf("%u\n", lDataSize);*/
     /*if (mxGetString(prhs[4], msg + sizeof(msgSerialCmd) + lDataSize, (mwSize)lSerie.sendLength)) {
@@ -956,17 +952,24 @@ void format_camera_image(msgCam *lCam, char *msg, unsigned int i, unsigned char 
     unsigned int    sizeImg = lCam->width * lCam->height * 3;
     unsigned int    a, b, y, x;
 
+    printf("Began processing a frame...\n");
     /* Get image source */
     switch (lCam->compressionType) {
         case MSGID_WEBCAM_NOCOMPRESSION:
             /* Set the pixel source pointer directly to the message header */
             inPixelSource = msg;
+            printf("No compression found...\n");
             break;
         default:
+            printf("Compression found... Generating de-jpeg buffer\n");
             /* Decompress the image first and set the pixel source pointer to it */
             inPixelSource = (char *) mxMalloc(sizeImg * sizeof(char));
+            printf("Decoding JPEG\n");
             decodeJPEG(msg, lCam->sizeData, (uint32_t*)inPixelSource);
+            printf("JPEG decoded\n");
     }
+
+    printf("Began formatting frame\n");
 
     /* Matlab formatting */
     for(y = 0, b = 0; y < lCam->width * lCam->height * 3 - lCam->width * 3; b++, y += lCam->width * 3)
@@ -979,6 +982,8 @@ void format_camera_image(msgCam *lCam, char *msg, unsigned int i, unsigned char 
             out_data[DESTINATION_STRIDE * 2] = inPixelSource[x++];
         }
     }
+
+    printf("Finished formatting frame\n");
 
     out_data_ts[i] = (double) lCam->timestamp;
 }
@@ -1005,7 +1010,6 @@ void logico_camera(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     } else {
         memset(&lCam, 0, sizeof(msgCam));
     }
-
 
     cam_size[0] = lCam.height;
     cam_size[1] = lCam.width;
