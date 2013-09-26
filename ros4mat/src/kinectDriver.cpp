@@ -58,7 +58,7 @@ void dataKinectSync(const sensor_msgs::Image::ConstPtr& imageRGB, const sensor_m
 	msg.channels = 3;
 
 	msg.timestamp = imageDepth->header.stamp.toSec();
-	ROS_DEBUG("Encoding de l'image Kinect : %s", imageRGB->encoding.c_str());
+	//ROS_DEBUG("Encoding de l'image Kinect : %s", imageRGB->encoding.c_str());
 
 
 	msg.compressionRatio = compression;
@@ -148,16 +148,16 @@ int main(int argc, char* argv[])
 
         /* Connecting to a maybe-not-already-published topic. This hack is to handle the sync()
         variable that seems to fall out of scope in the external function. */
-		message_filters::Subscriber<sensor_msgs::Image> imageRGB_sub(*n, "/rgb/image_raw", 10);
-        message_filters::Subscriber<sensor_msgs::Image> imageDepth_sub(*n, "/depth_registered/image_raw", 10);
+	message_filters::Subscriber<sensor_msgs::Image> imageRGB_sub(*n, "/camera/rgb/image_color", 30);
+        message_filters::Subscriber<sensor_msgs::Image> imageDepth_sub(*n, "/camera/depth/image_raw", 30);
 
-        // ApproximateTime takes a queue size as its constructor argument, hence MySyncPolicy(10)8
+        // ApproximateTime takes a queue size as its constructor argument, hence MySyncPolicy(10)
         message_filters::Synchronizer<MySyncPolicy> sync(MySyncPolicy(10), imageRGB_sub, imageDepth_sub);
 
         sync.registerCallback(boost::bind(dataKinectSync, _1, _2));
 
 
-	kinectPublisher = n->advertise<ros4mat::M_Kinect>("D_Kinect/data", request.kinectBufferSize);
+	kinectPublisher = n->advertise<ros4mat::M_Kinect>("D_Kinect/data", 30);
 	
 	
     initialised = true;

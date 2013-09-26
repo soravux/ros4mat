@@ -73,7 +73,7 @@
  * this topic.
  */
 #define LOCAL_SERVER_PORT       1500
-#define SOCKET_SEND_TIMEOUT_SEC 5
+#define SOCKET_SEND_TIMEOUT_SEC 10
 
 typedef struct msgCamInternal   msgCamInternal;
 struct msgCamInternal
@@ -525,6 +525,7 @@ void dataKinectReceived(const ros4mat::M_Kinect::ConstPtr &msg)
         )
         {
             ROS_DEBUG("Pruning Kinect data");
+            //ROS_INFO("Adresse RGB = %p, adresse Depth = %p", ((msgKinectInternal *) (*lClientIt).second.subscribers[MSGID_KINECT].second.front())->infoRGB.cptr, ((msgKinectInternal *) (*lClientIt).second.subscribers[MSGID_KINECT].second.front())->infoDepth.cptr);
             delete[] ((msgKinectInternal *) (*lClientIt).second.subscribers[MSGID_KINECT].second.front())->infoRGB.cptr;
             delete[] ((msgKinectInternal *) (*lClientIt).second.subscribers[MSGID_KINECT].second.front())->infoDepth.cptr;
             delete(msgKinectInternal *) ((*lClientIt).second.subscribers[MSGID_KINECT].second.front());
@@ -992,8 +993,8 @@ int unsubscribeTo(msgUnsubscribe *info, matlabClient &in_client, bool deleteInMa
             delete[]((msgHokuyoInternal *) (in_client.subscribers[info->typeCapteur].second.front()))->cptr;
         }
         else if(info->typeCapteur == MSGID_KINECT){
-            delete[] ((msgKinectInternal *) (*lClientIt).second.subscribers[info->typeCapteur].second.front())->infoRGB.cptr;
-            delete[] ((msgKinectInternal *) (*lClientIt).second.subscribers[info->typeCapteur].second.front())->infoDepth.cptr;
+            delete[] ((msgKinectInternal *) in_client.subscribers[info->typeCapteur].second.front())->infoRGB.cptr;
+            delete[] ((msgKinectInternal *) in_client.subscribers[info->typeCapteur].second.front())->infoDepth.cptr;
         }
 
         delete in_client.subscribers[info->typeCapteur].second.front();
@@ -1436,7 +1437,7 @@ int main(int argc, char **argv)
                     switch(lHeader.type)
                     {
                     case MSGID_CONNECT:
-                        ROS_DEBUG("Received Connect");
+                        ROS_INFO("Received Connect");
                         memcpy(&lConnect, msg, sizeof(msgConnect));
                         lAnswer = new char[sizeof(msgHeader)];
                         lAnswerHeader.type = MSGID_CONNECT_ACK;
