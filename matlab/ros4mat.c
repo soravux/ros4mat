@@ -1003,6 +1003,7 @@ void logico_camera(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     unsigned int    cam_size[4] = { 0, 0, 3, 0 };
 
     if (initialized == 0) mexErrMsgTxt("No connection established.");
+    setbuf(stdout, NULL);
 
     mexPrintf("Calling data...\n");
     mexEvalString("drawnow");

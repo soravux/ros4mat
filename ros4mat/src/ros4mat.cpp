@@ -1013,14 +1013,15 @@ int sendSerialCmd(msgSerialCmd *info, char* port, char* data, matlabClient &in_c
 {
     ros4mat::S_Serial   lParams;
     ROS_INFO(
-        "Serial received on Logico Agent : speed = %d / parity = %d / stop = %d / sendLength = %d / readLength = %d / readTimeoutSec = %d / readTimeoutMicro = %d",
+        "Serial received on Logico Agent : speed = %d / parity = %d / stop = %d / sendLength = %d / readLength = %d / readTimeoutSec = %d / readTimeoutMicro = %d / namelength = %d",
         info->speed,
         info->parity,
         info->stopBits,
         info->sendLength,
         info->readLength,
         info->readTimeoutSec,
-        info->readTimeoutMicro
+        info->readTimeoutMicro,
+        info->portBufferLength
     );
     lParams.request.port = std::string(port);
     ROS_INFO("Serial port %s", port);
