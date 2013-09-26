@@ -591,6 +591,10 @@ void logico_subscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]
             } else {
                 lParameters.cam.compression = MSGID_WEBCAM_NOCOMPRESSION;
             }
+            /* Camera ID */
+            if (nrhs > 5) {
+                lParameters.cam.id = (unsigned char) mxGetScalar(prhs[5]);
+            }
             goto parse_resolution;
         case MSGID_KINECT:
             if (!lParamSize) { lParamSize = sizeof(paramsKinect); }
