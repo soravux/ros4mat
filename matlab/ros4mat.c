@@ -906,8 +906,9 @@ void logico_serial(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     recv(*main_socket, msg, sizeof(msgHeader) + lHeader.size * sizeof(msgSerialAns), 0);
 
     /* Matlab formatting */
-    memcpy(&lSerieAns, msg + sizeof(msgHeader) + sizeof(msgSerialAns), sizeof(msgSerialAns));
+    memcpy(&lSerieAns, msg + sizeof(msgHeader), sizeof(msgSerialAns));
     out_data = mxCalloc(lSerieAns.dataLength, sizeof(char));
+    memcpy(out_data, msg + sizeof(msgHeader) + sizeof(msgSerialAns), lSerieAns.dataLength);
     plhs[0] = mxCreateString(out_data);
     mxFree(msg);
 }
@@ -1199,9 +1200,6 @@ void logico_kinect(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     depth_size[0] = lKinect.infoDepth.height;
     depth_size[1] = lKinect.infoDepth.width;
     depth_size[3] = lHeader.size;
-
-    mexPrintf("%u %u %u\n", rgb_size[0], rgb_size[1], rgb_size[3]);
-    mexPrintf("%u %u %u\n", depth_size[0], depth_size[1], depth_size[3]);
 
     plhs[0] = mxCreateNumericArray(4, rgb_size, mxUINT8_CLASS, mxREAL); /* RGB */
     plhs[1] = mxCreateNumericArray(4, depth_size, mxUINT16_CLASS, mxREAL); /* Depth */
