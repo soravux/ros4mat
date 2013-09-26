@@ -1166,7 +1166,7 @@ void format_kinect_depth(msgCam *lCam, char *msg, unsigned int i, unsigned short
     {
         for(x = y, a = b; x < y + lCam->width; a += lCam->height)
         {
-            out_data[a + i * sizeImg] = *(msg + x++ * 2);
+            out_data[a + i * sizeImg] = ((unsigned short*)msg)[x++];
         }
     }
 
