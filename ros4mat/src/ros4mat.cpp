@@ -521,6 +521,7 @@ void dataKinectReceived(const ros4mat::M_Kinect::ConstPtr &msg)
                 (*lClientIt).second.buffersInfo[MSGID_KINECT]
         )
         {
+            ROS_DEBUG("Pruning Kinect data");
             delete[] ((msgKinectInternal *) (*lClientIt).second.subscribers[MSGID_KINECT].second.front())->infoRGB.cptr;
             delete[] ((msgKinectInternal *) (*lClientIt).second.subscribers[MSGID_KINECT].second.front())->infoDepth.cptr;
             delete(msgKinectInternal *) ((*lClientIt).second.subscribers[MSGID_KINECT].second.front());
@@ -1698,6 +1699,7 @@ int main(int argc, char **argv)
                                 }
 
                                 delete currentKinectStruct;
+                                clients[lHeader.clientId].subscribers[MSGID_KINECT].second.pop();
                             }
 
                             ROS_INFO("Send kinect data: %X (size = %i)", lAnswerHeader.type, lRetourSize);
