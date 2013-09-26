@@ -408,7 +408,7 @@ unsigned char pjpeg_need_bytes_callback(unsigned char* pBuf, unsigned char buf_s
 }
 
 
-void decodeJPEG(char *inStream, uint32_t dataSize, uint32_t *outImage)
+void decodeJPEG(char *inStream, uint32_t dataSize, uint8_t *outImage)
 {
     pjpeg_image_info_t imageInfo;
     jpeg_datastream = inStream;
@@ -419,22 +419,26 @@ void decodeJPEG(char *inStream, uint32_t dataSize, uint32_t *outImage)
     int x, y, bx, by;
     int mcu_x = 0;
     int mcu_y = 0;
-    
-    /*int filedesc = open("/home/mag/testfile.jpg", O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
-    if(filedesc < 0)
-        mexPrintf("BOUM!\n");
-    status = write(filedesc, inStream, dataSize);
-    close(filedesc);*/
+
+    mexPrintf("m_width: %u\n", imageInfo.m_width);
+    mexPrintf("m_height: %u\n", imageInfo.m_height);
+    mexPrintf("m_comps: %u\n", imageInfo.m_comps);
 
     for ( ; ; ) {
         status = pjpeg_decode_mcu();
 
         /* Handle case when its done. */
         if (status) {
-            if (status != PJPG_NO_MORE_BLOCKS) { return; }
+            if (status != PJPG_NO_MORE_BLOCKS) {
+                mexErrMsgTxt("Error while decoding JPEG.");
+                return;
+            }
             break;
         }
-        if (mcu_y >= imageInfo.m_MCUSPerCol) { return; }
+        if (mcu_y >= imageInfo.m_MCUSPerCol) {
+            mexErrMsgTxt("Error while decoding JPEG.");
+            return;
+        }
 
         /* Copy MCU's pixel blocks into the destination bitmap. */
         for (y = 0; y < imageInfo.m_MCUHeight; y += 8) {
@@ -451,7 +455,7 @@ void decodeJPEG(char *inStream, uint32_t dataSize, uint32_t *outImage)
                 if (imageInfo.m_scanType == PJPG_GRAYSCALE) {
                     for (by = 0; by < by_limit; by++) {
                         for (bx = 0; bx < bx_limit; bx++) {
-                            uint32_t color = ((*pSrcR++) << 16);
+                            uint8_t color = ((*pSrcR++) << 16);
                             outImage[mcu_x*imageInfo.m_MCUWidth + x + bx
                                      + mcu_y*imageInfo.m_MCUHeight + y + by] = color;
                         }
@@ -460,9 +464,11 @@ void decodeJPEG(char *inStream, uint32_t dataSize, uint32_t *outImage)
                 } else {
                     for (by = 0; by < by_limit; by++) {
                         for (bx = 0; bx < bx_limit; bx++) {
-                            uint32_t color = ((*pSrcR++) << 16) | ((*pSrcG++) << 8) | (*pSrcB++);
-                            outImage[mcu_x*imageInfo.m_MCUWidth + x + bx
-                                     + mcu_y*imageInfo.m_MCUHeight + y + by] = color;
+                            #define STRIDE_JPEG  ((mcu_x * imageInfo.m_MCUWidth + x + bx + (mcu_y * imageInfo.m_MCUHeight + y + by) * imageInfo.m_width) * imageInfo.m_comps)
+                            /* mexPrintf("%u\n", STRIDE_JPEG); */
+                            outImage[STRIDE_JPEG + 0] = *pSrcR++;
+                            outImage[STRIDE_JPEG + 1] = *pSrcG++;
+                            outImage[STRIDE_JPEG + 2] = *pSrcB++;
                         }
 
                         pSrcR += (8 - bx_limit);
@@ -842,6 +848,9 @@ void logico_serial(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     msg = (char *) mxCalloc(1, sizeof(msgSerialCmd) + lPortSize + (short) mxGetScalar(prhs[5]));
 
     /* Parse parameters */
+    if (nrhs < 9) {
+        mexErrMsgTxt("Insufficient parameter count (9 needed)");
+    }
     ((msgSerialCmd*)msg)->portBufferLength = lPortSize;
     ((msgSerialCmd*)msg)->speed = (unsigned short) mxGetScalar(prhs[1]);
     ((msgSerialCmd*)msg)->parity = (char) mxGetScalar(prhs[2]);
@@ -876,6 +885,8 @@ void logico_serial(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         mexErrMsgTxt("Reponse incompatible du robot.");
     }
 
+    /* Reallocate msg buffer for data reception */
+    mxFree(msg);
     msg = (char *) mxCalloc(1, sizeof(msgHeader) + lHeader.size * sizeof(msgSerialAns));
 
     recv(*main_socket, msg, sizeof(msgHeader) + lHeader.size * sizeof(msgSerialAns), 0);
@@ -974,7 +985,7 @@ void format_camera_image(msgCam *lCam, char *msg, unsigned int i, unsigned char 
             inPixelSource = (char *) mxMalloc(sizeImg * sizeof(char));
             mexPrintf("Decoding JPEG\n");
             mexEvalString("drawnow");
-            decodeJPEG(msg, lCam->sizeData, (uint32_t*)inPixelSource);
+            decodeJPEG(msg, lCam->sizeData, (uint8_t*)inPixelSource);
             mexPrintf("JPEG decoded\n");
             mexEvalString("drawnow");
     }
@@ -1039,7 +1050,7 @@ void logico_camera(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
     image_in_msg = msg + sizeof(msgHeader) + sizeof(msgCam) * lHeader.size;
 
-    for(i = 0; i < lHeader.size; i++)
+    for (i = 0; i < lHeader.size; i++)
     {
         format_camera_image(
             (msgCam*)(msg + sizeof(msgHeader) + i * sizeof(msgCam)),
