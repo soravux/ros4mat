@@ -1615,7 +1615,7 @@ int main(int argc, char **argv)
 
                             msgCam                  lCamData;
                             msgStereoCamInternal    *currentCamStruct = 0;
-                            for(unsigned int k = 0; k < lAnswerHeader.size; k += 2)
+                            for(unsigned int k = 0; k < lAnswerHeader.size; k += 1)
                             {
                                 // msgCam struct copy at the packet beginning
                                 currentCamStruct = (msgStereoCamInternal *) clients[lHeader.clientId].subscribers[MSGID_WEBCAM_STEREO].second.front();
@@ -1627,13 +1627,13 @@ int main(int argc, char **argv)
                                 lCamData.timestamp = currentCamStruct->timestamp;
 
                                 // Header copy for left image
-                                memcpy(lAnswer + (k + 0) * sizeof(msgCam), &lCamData, sizeof(msgCam));
+                                memcpy(lAnswer + (k*2 + 0) * sizeof(msgCam), &lCamData, sizeof(msgCam));
 
                                 // Header copy for right image
                                 lCamData.width = currentCamStruct->width_R;
                                 lCamData.height = currentCamStruct->height_R;
                                 lCamData.sizeData = currentCamStruct->sizeData_R;
-                                memcpy(lAnswer + (k + 1) * sizeof(msgCam), &lCamData, sizeof(msgCam));
+                                memcpy(lAnswer + (k*2 + 1) * sizeof(msgCam), &lCamData, sizeof(msgCam));
 
                                 // On realloc pour chaque image car elles peuvent etre de taille differente
                                 lRetourSize += currentCamStruct->sizeData_L + currentCamStruct->sizeData_R;
