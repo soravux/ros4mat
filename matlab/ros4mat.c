@@ -664,6 +664,7 @@ msgHeader logico_send_data_request(char inType, char **msg, unsigned int inStruc
     struct timeval  timeout;
 
     flush_reception_buffer();
+    FD_ZERO(&read_fds);
 
     /* Send an empty packet requesting for the desired sensor */
     send_message(inType, 0, 0, 0);
@@ -989,7 +990,12 @@ void logico_camera(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
     lHeader = logico_send_data_request(MSGID_WEBCAM, &msg, sizeof(msgCam));
 
-    memcpy(&lCam, msg + sizeof(msgHeader), sizeof(msgCam));
+    if (lHeader.size > 0) {
+        memcpy(&lCam, msg + sizeof(msgHeader), sizeof(msgCam));
+    } else {
+        memset(&lCam, 0, sizeof(msgCam));
+    }
+
 
     cam_size[0] = lCam.height;
     cam_size[1] = lCam.width;
@@ -1037,7 +1043,11 @@ void logico_camera_stereo(int nlhs, mxArray *plhs[], int nrhs, const mxArray *pr
 
     lHeader = logico_send_data_request(MSGID_WEBCAM_STEREO, &msg, sizeof(msgCam));
 
-    memcpy(&lCam_l, msg + sizeof(msgHeader), sizeof(msgCam));
+    if (lHeader.size > 0) {
+        memcpy(&lCam_l, msg + sizeof(msgHeader), sizeof(msgCam));
+    } else {
+        memset(&lCam_l, 0, sizeof(msgCam));
+    }
 
     cam_size[0] = lCam_l.height;
     cam_size[1] = lCam_l.width;
@@ -1131,14 +1141,18 @@ void logico_kinect(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     unsigned short  *out_data_depth;
     double          *out_data_ts;
     unsigned int    sizeImg = 0;
-    unsigned int    rgb_size[4] = { 0, 0, 4, 0 };
-    unsigned int    depth_size[4] = { 0, 0, 4, 0 };
+    unsigned int    rgb_size[4] = { 0, 0, 3, 0 };
+    unsigned int    depth_size[4] = { 0, 0, 1, 0 };
 
     if (initialized == 0) mexErrMsgTxt("No connection established.");
 
     lHeader = logico_send_data_request(MSGID_KINECT, &msg, sizeof(msgCam));
 
-    memcpy(&lKinect, msg + sizeof(msgHeader), sizeof(msgCam));
+    if (lHeader.size > 0) {
+        memcpy(&lKinect, msg + sizeof(msgHeader), sizeof(msgKinect));
+    } else {
+        memset(&lKinect, 0, sizeof(msgKinect));
+    }
 
     rgb_size[0] = lKinect.infoRGB.height;
     rgb_size[1] = lKinect.infoRGB.width;
@@ -1146,6 +1160,9 @@ void logico_kinect(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     depth_size[0] = lKinect.infoDepth.height;
     depth_size[1] = lKinect.infoDepth.width;
     depth_size[3] = lHeader.size;
+
+    printf("%u %u %u\n", rgb_size[0], rgb_size[1], rgb_size[3]);
+    printf("%u %u %u\n", depth_size[0], depth_size[1], depth_size[3]);
 
     plhs[0] = mxCreateNumericArray(3, rgb_size, mxUINT8_CLASS, mxREAL); /* RGB */
     plhs[1] = mxCreateNumericArray(1, depth_size, mxUINT16_CLASS, mxREAL); /* Depth */
@@ -1160,7 +1177,7 @@ void logico_kinect(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     {
         /* Process RGB */
         format_camera_image(
-            (msgCam*)msg + sizeof(msgHeader) + i * sizeof(msgKinect),
+            (msgCam*)(msg + sizeof(msgHeader) + i * sizeof(msgKinect)),
             image_in_msg,
             i,
             out_data_rgb,
@@ -1170,7 +1187,7 @@ void logico_kinect(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
         /* Process Depth */
         format_kinect_depth(
-            (msgCam*)msg + sizeof(msgHeader) + i * sizeof(msgCam),
+            (msgCam*)(msg + sizeof(msgHeader) + i * sizeof(msgCam)),
             image_in_msg,
             i,
             out_data_depth,
@@ -1238,7 +1255,11 @@ void logico_hokuyo(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     if (initialized == 0) mexErrMsgTxt("No connection established.");
 
     lHeader = logico_send_data_request(MSGID_HOKUYO, &msg, sizeof(msgHokuyo));
-    memcpy(&lHokuyo, msg + sizeof(msgHeader), sizeof(msgHokuyo));
+    if (lHeader.size > 0) {
+        memcpy(&lHokuyo, msg + sizeof(msgHeader), sizeof(msgHokuyo));
+    } else {
+        memset(&lHokuyo, 0, sizeof(msgHokuyo));
+    }
 
     hokuyo_size[0] = lHokuyo.sizeData / sizeof(float);
     hokuyo_size[1] = lHeader.size;
