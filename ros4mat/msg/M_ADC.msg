@@ -1,0 +1,10 @@
+Header header
+float64[] canal1
+float64[] canal2
+float64[] canal3
+float64[] canal4
+float64[] canal5
+float64[] canal6
+float64[] canal7
+float64[] canal8
+float64[] timestamps
