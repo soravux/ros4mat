@@ -726,6 +726,7 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
             lParamsSetCam.request.width = lStructCamera.width;
             lParamsSetCam.request.height = lStructCamera.height;
             lParamsSetCam.request.fps = lStructCamera.fps;
+            lParamsSetCam.request.compressionRatio = lStructCamera.compression;
             ROS_INFO("Envoi de la requete au service");
             if(!ros::service::call("/D_Cam/params", lParamsSetCam))
             {
@@ -774,6 +775,7 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
             lParamsSetStereoCam.request.width = lStructStereoCam.width;
             lParamsSetStereoCam.request.height = lStructStereoCam.height;
             lParamsSetStereoCam.request.fps = lStructStereoCam.fps;
+            lParamsSetCam.request.compressionRatio = lStructCamera.compression;
             ROS_INFO("Envoi de la requete au service");
             if(!ros::service::call("/D_CamStereo/params", lParamsSetStereoCam))
             {
