@@ -402,6 +402,7 @@ unsigned char pjpeg_need_bytes_callback(unsigned char* pBuf, unsigned char buf_s
 {
     uint32_t n = min((uint32_t)jpeg_size - jpeg_pos, (uint32_t)buf_size);
     memcpy(pBuf, jpeg_datastream + jpeg_pos, n);
+    *pBytes_actually_read = (unsigned char)n;
     jpeg_pos += n;
     return 0;
 }
@@ -412,11 +413,18 @@ void decodeJPEG(char *inStream, uint32_t dataSize, uint32_t *outImage)
     pjpeg_image_info_t imageInfo;
     jpeg_datastream = inStream;
     jpeg_size = dataSize;
+    jpeg_pos = 0;
     int status = pjpeg_decode_init(&imageInfo, pjpeg_need_bytes_callback, NULL, 0);
     /* const unsigned int row_pitch = imageInfo.m_width * imageInfo.m_comps; */
     int x, y, bx, by;
     int mcu_x = 0;
     int mcu_y = 0;
+    
+    /*int filedesc = open("/home/mag/testfile.jpg", O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+    if(filedesc < 0)
+        mexPrintf("BOUM!\n");
+    status = write(filedesc, inStream, dataSize);
+    close(filedesc);*/
 
     for ( ; ; ) {
         status = pjpeg_decode_mcu();
@@ -694,6 +702,8 @@ msgHeader logico_send_data_request(char inType, char **msg, unsigned int inStruc
     recvBytes = 0;
     while(recvBytes < expectedRecvSize)
     {
+        /*mexPrintf("Expected recvBytes = %d, actually received = %d, difference = %d\n", expectedRecvSize, recvBytes, expectedRecvSize - recvBytes);
+        mexEvalString("drawnow");
         timeout.tv_sec = 30;
         timeout.tv_usec = 0;
         i = select(*main_socket + 1, &read_fds, NULL, NULL, &timeout);
@@ -701,7 +711,7 @@ msgHeader logico_send_data_request(char inType, char **msg, unsigned int inStruc
             mexErrMsgTxt("Network error.");
         } else if (i == 0) {
             mexErrMsgTxt("Network timeout error.");
-        }
+        }*/
 
         recvBytes += recv(*main_socket, msgCompress + recvBytes, expectedRecvSize - recvBytes, 0);
     }
