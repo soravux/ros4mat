@@ -50,6 +50,8 @@ void dataCamSync(const sensor_msgs::Image::ConstPtr& image){
 	msg.channels = 3;
 	msg.timestamp = image->header.stamp.toSec();
 
+	ROS_DEBUG("Encoding de l'image : %s", image->encoding.c_str());
+
 
 	msg.compressionRatio = compression;
 
