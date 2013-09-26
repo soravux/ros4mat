@@ -728,14 +728,14 @@ msgHeader logico_send_data_request(char inType, char **msg, unsigned int inStruc
     {
         /* mexPrintf("Expected recvBytes = %d, actually received = %d, difference = %d\n", expectedRecvSize, recvBytes, expectedRecvSize - recvBytes);
         mexEvalString("drawnow"); */
-        timeout.tv_sec = 30;
+        /*timeout.tv_sec = 30;
         timeout.tv_usec = 0;
         i = select(*main_socket + 1, &read_fds, NULL, NULL, &timeout);
         if (i < 0) {
             mexErrMsgTxt("Network error.");
         } else if (i == 0) {
             mexErrMsgTxt("Network timeout error.");
-        }
+        }*/
 
         recvBytes += recv(*main_socket, msgCompress + recvBytes, expectedRecvSize - recvBytes, 0);
     }
