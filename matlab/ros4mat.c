@@ -579,7 +579,9 @@ void logico_subscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]
             if (nrhs > 6) {
                 lParameters.stereocam.idRight = (unsigned char) mxGetScalar(prhs[6]);
             }
-            lParameters.cam.compression = (unsigned char) mxGetScalar(prhs[7]);
+            if (nrhs > 7) {
+                lParameters.stereocam.compression = (unsigned char) mxGetScalar(prhs[7]);
+            }
             /* I'm sorry! :( */
             goto parse_resolution;
         case MSGID_WEBCAM:
@@ -589,12 +591,19 @@ void logico_subscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]
             } else {
                 lParameters.cam.compression = MSGID_WEBCAM_NOCOMPRESSION;
             }
+            goto parse_resolution;
         case MSGID_KINECT:
             if (!lParamSize) { lParamSize = sizeof(paramsKinect); }
 
             /* Camera ID */
             if (nrhs > 5) {
                 lParameters.cam.id = (unsigned char) mxGetScalar(prhs[5]);
+            }
+
+            if (nrhs > 6) {
+                lParameters.kinect.compressionRGB = (unsigned char) mxGetScalar(prhs[6]);
+            } else {
+                lParameters.kinect.compressionRGB = MSGID_WEBCAM_NOCOMPRESSION;
             }
 
         parse_resolution:
@@ -643,8 +652,6 @@ void logico_subscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]
 /* */
 void logico_unsubscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
-    char            *msg;
-    msgHeader       lHeader;
     msgUnsubscribe  lUnsubscribeMessage;
     char            StrBuffer[65];
     unsigned int    h = 0;
@@ -668,15 +675,12 @@ void logico_unsubscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs
 
     if (h != 0) mexErrMsgTxt("Unsupported node.");
 
-    msg = (char *) mxCalloc(1, sizeof(msgHeader) + sizeof(msgUnsubscribe));
-    lHeader.type = MSGID_UNSUBSCRIBE;
-    lHeader.size = 1;
-    lHeader.packetTimestamp = 0.0;
-
-    memcpy(msg, &lHeader, sizeof(msgHeader));
-    memcpy(msg + sizeof(msgHeader), &lUnsubscribeMessage, sizeof(msgUnsubscribe));
-
-    send(*main_socket, msg, sizeof(msgHeader) + sizeof(msgUnsubscribe), 0);
+    send_message(
+        MSGID_UNSUBSCRIBE,
+        1,
+        (char*)&lUnsubscribeMessage,
+        sizeof(msgUnsubscribe)
+    );
 }
 
 /* */
@@ -975,36 +979,23 @@ void logico_gps(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 void format_camera_image(msgCam *lCam, char *msg, unsigned int i, unsigned char *out_data, double *out_data_ts)
 {
     char            *inPixelSource;
-    unsigned int    sizeImg = lCam->width * lCam->height * 3;
+    unsigned int    sizeImg = lCam->width * lCam->height * lCam->channels;
     unsigned int    a, b, y, x;
 
-    mexPrintf("Began processing a frame...\n");
-    mexEvalString("drawnow");
     /* Get image source */
     switch (lCam->compressionType) {
         case MSGID_WEBCAM_NOCOMPRESSION:
             /* Set the pixel source pointer directly to the message header */
             inPixelSource = msg;
-            mexPrintf("No compression found...\n");
-            mexEvalString("drawnow");
             break;
         default:
-            mexPrintf("Compression found... Generating de-jpeg buffer\n");
-            mexEvalString("drawnow");
             /* Decompress the image first and set the pixel source pointer to it */
             inPixelSource = (char *) mxMalloc(sizeImg * sizeof(char));
-            mexPrintf("Decoding JPEG\n");
-            mexEvalString("drawnow");
 /*
             decodeJPEG2(msg, lCam->sizeData, (uint32_t*)inPixelSource);
 */
             decodeJPEG(msg, lCam->sizeData, (uint8_t*)inPixelSource);
-            mexPrintf("JPEG decoded\n");
-            mexEvalString("drawnow");
     }
-
-    mexPrintf("Began formatting frame\n");
-    mexEvalString("drawnow");
 
     /* Matlab formatting */
     for(y = 0, b = 0; y < lCam->width * lCam->height * 3 - lCam->width * 3; b++, y += lCam->width * 3)
@@ -1017,8 +1008,6 @@ void format_camera_image(msgCam *lCam, char *msg, unsigned int i, unsigned char 
             out_data[DESTINATION_STRIDE * 2] = inPixelSource[x++];
         }
     }
-
-    mexPrintf("Finished formatting frame\n");
 
     out_data_ts[i] = (double) lCam->timestamp;
 }
@@ -1039,11 +1028,7 @@ void logico_camera(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     if (initialized == 0) mexErrMsgTxt("No connection established.");
     setbuf(stdout, NULL);
 
-    mexPrintf("Calling data...\n");
-    mexEvalString("drawnow");
     lHeader = logico_send_data_request(MSGID_WEBCAM, &msg, sizeof(msgCam));
-    mexPrintf("Data received...\n");
-    mexEvalString("drawnow");
 
     if (lHeader.size > 0) {
         memcpy(&lCam, msg + sizeof(msgHeader), sizeof(msgCam));
@@ -1140,9 +1125,9 @@ void logico_camera_stereo(int nlhs, mxArray *plhs[], int nrhs, const mxArray *pr
                 /* Decompress the image first and set the pixel source pointer to it */
                 inPixelSource_l = (char *) mxMalloc(sizeImg);
                 inPixelSource_r = (char *) mxMalloc(sizeImg);
-                decodeJPEG(msg + msg_pos, lCam_l.sizeData, (uint32_t*)inPixelSource_l);
+                decodeJPEG(msg + msg_pos, lCam_l.sizeData, (uint8_t*)inPixelSource_l);
                 msg_pos += lCam_l.sizeData;
-                decodeJPEG(msg + msg_pos, lCam_r.sizeData, (uint32_t*)inPixelSource_r);
+                decodeJPEG(msg + msg_pos, lCam_r.sizeData, (uint8_t*)inPixelSource_r);
                 msg_pos += lCam_r.sizeData;
         }
 
@@ -1168,7 +1153,7 @@ void logico_camera_stereo(int nlhs, mxArray *plhs[], int nrhs, const mxArray *pr
 
 void format_kinect_depth(msgCam *lCam, char *msg, unsigned int i, unsigned short *out_data, double *out_data_ts)
 {
-    unsigned int    sizeImg = lCam->width * lCam->height * 1;
+    unsigned int    sizeImg = lCam->width * lCam->height;
     unsigned int    a, b, y, x;
 
     /* Matlab formatting */
@@ -1218,8 +1203,8 @@ void logico_kinect(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     mexPrintf("%u %u %u\n", rgb_size[0], rgb_size[1], rgb_size[3]);
     mexPrintf("%u %u %u\n", depth_size[0], depth_size[1], depth_size[3]);
 
-    plhs[0] = mxCreateNumericArray(3, rgb_size, mxUINT8_CLASS, mxREAL); /* RGB */
-    plhs[1] = mxCreateNumericArray(1, depth_size, mxUINT16_CLASS, mxREAL); /* Depth */
+    plhs[0] = mxCreateNumericArray(4, rgb_size, mxUINT8_CLASS, mxREAL); /* RGB */
+    plhs[1] = mxCreateNumericArray(4, depth_size, mxUINT16_CLASS, mxREAL); /* Depth */
     plhs[2] = mxCreateDoubleMatrix(1, lHeader.size, mxREAL);
     out_data_rgb = (unsigned char *) mxGetData(plhs[0]);
     out_data_depth = (unsigned short *) mxGetData(plhs[1]);
@@ -1241,7 +1226,7 @@ void logico_kinect(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
         /* Process Depth */
         format_kinect_depth(
-            (msgCam*)(msg + sizeof(msgHeader) + i * sizeof(msgCam)),
+            (msgCam*)(msg + sizeof(msgHeader) + i * sizeof(msgKinect) + sizeof(msgCam)),
             image_in_msg,
             i,
             out_data_depth,
@@ -1276,7 +1261,7 @@ void logico_kinect_ir(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]
     cam_size[1] = lCam.width;
     cam_size[2] = lHeader.size;
 
-    plhs[0] = mxCreateNumericArray(3, cam_size, mxUINT16_CLASS, mxREAL);    /* 16 bits */
+    plhs[0] = mxCreateNumericArray(4, cam_size, mxUINT16_CLASS, mxREAL);    /* 16 bits */
     plhs[1] = mxCreateDoubleMatrix(1, lHeader.size, mxREAL);
     out_data = (unsigned short *) mxGetData(plhs[0]);
     out_data_ts = (double *) mxGetPr(plhs[1]);
