@@ -997,8 +997,12 @@ void logico_camera(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     unsigned int    cam_size[4] = { 0, 0, 3, 0 };
 
     if (initialized == 0) mexErrMsgTxt("No connection established.");
-
+    
+    setbuf(stdout, NULL);
+    
+    mexWarnMsgTxt("BOUM!\n");
     lHeader = logico_send_data_request(MSGID_WEBCAM, &msg, sizeof(msgCam));
+    mexWarnMsgTxt("PAF!\n");
 
     if (lHeader.size > 0) {
         memcpy(&lCam, msg + sizeof(msgHeader), sizeof(msgCam));
