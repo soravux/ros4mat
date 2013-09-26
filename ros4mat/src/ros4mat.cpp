@@ -1615,7 +1615,7 @@ int main(int argc, char **argv)
 
                             msgCam                  lCamData;
                             msgStereoCamInternal    *currentCamStruct = 0;
-                            for(unsigned int k = 0; k < lAnswerHeader.size; k++)
+                            for(unsigned int k = 0; k < lAnswerHeader.size; k += 2)
                             {
                                 // msgCam struct copy at the packet beginning
                                 currentCamStruct = (msgStereoCamInternal *) clients[lHeader.clientId].subscribers[MSGID_WEBCAM_STEREO].second.front();
