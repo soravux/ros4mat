@@ -828,10 +828,11 @@ void logico_serial(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     setbuf(stdout, NULL);
 
     /* Get payload size (port name + data to send) and generate a buffer long enough */
-    lPortSize = mxGetN(prhs[0]) * sizeof(mxChar) + 1;
+    lPortSize = (mxGetN(prhs[0]) * sizeof(mxChar) + 1) / 2;
     msg = (char *) mxCalloc(1, sizeof(msgSerialCmd) + lPortSize + (short) mxGetScalar(prhs[5]));
 
     /* Parse parameters */
+    ((msgSerialCmd*)msg)->portBufferLength = lPortSize;
     ((msgSerialCmd*)msg)->speed = (unsigned short) mxGetScalar(prhs[1]);
     ((msgSerialCmd*)msg)->parity = (char) mxGetScalar(prhs[2]);
     ((msgSerialCmd*)msg)->stopBits = (char) mxGetScalar(prhs[3]);
@@ -841,21 +842,15 @@ void logico_serial(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     ((msgSerialCmd*)msg)->readTimeoutMicro = (long) mxGetScalar(prhs[8]);
     ((msgSerialCmd*)msg)->closeAfterComm = (char) mxGetScalar(prhs[9]);
 
-    printf("%u\n", lPortSize);
-
-    /* Copy payload to the message. */
-    if (mxGetString(prhs[0], msg + sizeof(msgSerialCmd), (mwSize)lPortSize)) {
-        mexErrMsgTxt("Could not understand port name.");
+    /* Copy port name to the message. */
+    for(h = 0; h < lPortSize * 2; h += 2) {
+        *(msg + sizeof(msgSerialCmd) + (h / 2)) = ((unsigned char *) mxGetChars(prhs[0]))[h];
     }
 
+    /* Copy data to the message. */
     for(h = 0; h < ((msgSerialCmd*)msg)->sendLength * 2; h += 2) {
         *(msg + sizeof(msgSerialCmd) + lPortSize + (h / 2)) = ((unsigned char *) mxGetChars(prhs[4]))[h];
     }
-    /*lDataSize = mxGetN(prhs[4]) * sizeof(mxChar) + 1;
-    printf("%u\n", lDataSize);*/
-    /*if (mxGetString(prhs[4], msg + sizeof(msgSerialCmd) + lDataSize, (mwSize)lSerie.sendLength)) {
-        mexErrMsgTxt("Could not understand data to send.");
-    }*/
 
     /* Send the message */
     send_message(
