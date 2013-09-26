@@ -50,7 +50,7 @@ void dataCamSync(const sensor_msgs::Image::ConstPtr& image){
 	msg.channels = 3;
 	msg.timestamp = image->header.stamp.toSec();
 
-	ROS_DEBUG("Encoding de l'image : %s", image->encoding.c_str());
+	//ROS_INFO("Encoding de l'image : %s", image->encoding.c_str());
 
 
 	msg.compressionRatio = compression;
@@ -112,6 +112,9 @@ bool newConfReceived(ros4mat::S_Cam::Request& request, ros4mat::S_Cam::Response&
 		ROS_INFO("Lancement de la commande : %s", ssRequest.str().c_str());
 		ret = system(ssRequest.str().c_str());
 		ROS_INFO("Fin de la commande (status %i)", ret);
+		
+		ret = system("sleep 4");		// On attend que la camera soit configuree
+		ret = system("uvcdynctrl --device=video1 -s \"Exposure (Absolute)\" 400"); // Bon ok c'est un peu arbitraire. Plus le nombre est petit, plus c'est clair
 
 		compression = request.compressionRatio;
 		
@@ -123,6 +126,7 @@ bool newConfReceived(ros4mat::S_Cam::Request& request, ros4mat::S_Cam::Response&
 		*loop_rate = ros::Rate((double)request.fps);
 		running = true;
 		
+		ROS_INFO("Compression value set to %d", compression);	
 		ROS_INFO("Configuration de la camera terminee avec succes...");
 		response.ret = ret;
 		return true;
