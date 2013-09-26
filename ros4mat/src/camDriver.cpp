@@ -113,8 +113,10 @@ bool newConfReceived(ros4mat::S_Cam::Request& request, ros4mat::S_Cam::Response&
 		ret = system(ssRequest.str().c_str());
 		ROS_INFO("Fin de la commande (status %i)", ret);
 		
+		ssRequest.str("");
+		ssRequest << "uvcdynctrl --device=" << request.device.substr(5) << " -s \"Exposure (Absolute)\" 400";
 		ret = system("sleep 4");		// On attend que la camera soit configuree
-		ret = system("uvcdynctrl --device=video1 -s \"Exposure (Absolute)\" 400"); // Bon ok c'est un peu arbitraire. Plus le nombre est petit, plus c'est clair
+		ret = system(ssRequest.str().c_str()); // Bon ok c'est un peu arbitraire. Plus le nombre est petit, plus c'est clair
 
 		compression = request.compressionRatio;
 		
