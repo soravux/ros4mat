@@ -947,24 +947,30 @@ void format_camera_image(msgCam *lCam, char *msg, unsigned int i, unsigned char 
     unsigned int    sizeImg = lCam->width * lCam->height * 3;
     unsigned int    a, b, y, x;
 
-    printf("Began processing a frame...\n");
+    mexPrintf("Began processing a frame...\n");
+    mexEvalString("drawnow");
     /* Get image source */
     switch (lCam->compressionType) {
         case MSGID_WEBCAM_NOCOMPRESSION:
             /* Set the pixel source pointer directly to the message header */
             inPixelSource = msg;
-            printf("No compression found...\n");
+            mexPrintf("No compression found...\n");
+            mexEvalString("drawnow");
             break;
         default:
-            printf("Compression found... Generating de-jpeg buffer\n");
+            mexPrintf("Compression found... Generating de-jpeg buffer\n");
+            mexEvalString("drawnow");
             /* Decompress the image first and set the pixel source pointer to it */
             inPixelSource = (char *) mxMalloc(sizeImg * sizeof(char));
-            printf("Decoding JPEG\n");
+            mexPrintf("Decoding JPEG\n");
+            mexEvalString("drawnow");
             decodeJPEG(msg, lCam->sizeData, (uint32_t*)inPixelSource);
-            printf("JPEG decoded\n");
+            mexPrintf("JPEG decoded\n");
+            mexEvalString("drawnow");
     }
 
-    printf("Began formatting frame\n");
+    mexPrintf("Began formatting frame\n");
+    mexEvalString("drawnow");
 
     /* Matlab formatting */
     for(y = 0, b = 0; y < lCam->width * lCam->height * 3 - lCam->width * 3; b++, y += lCam->width * 3)
@@ -978,7 +984,7 @@ void format_camera_image(msgCam *lCam, char *msg, unsigned int i, unsigned char 
         }
     }
 
-    printf("Finished formatting frame\n");
+    mexPrintf("Finished formatting frame\n");
 
     out_data_ts[i] = (double) lCam->timestamp;
 }
@@ -998,7 +1004,11 @@ void logico_camera(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
     if (initialized == 0) mexErrMsgTxt("No connection established.");
 
+    mexPrintf("Calling data...\n");
+    mexEvalString("drawnow");
     lHeader = logico_send_data_request(MSGID_WEBCAM, &msg, sizeof(msgCam));
+    mexPrintf("Data received...\n");
+    mexEvalString("drawnow");
 
     if (lHeader.size > 0) {
         memcpy(&lCam, msg + sizeof(msgHeader), sizeof(msgCam));
@@ -1170,8 +1180,8 @@ void logico_kinect(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     depth_size[1] = lKinect.infoDepth.width;
     depth_size[3] = lHeader.size;
 
-    printf("%u %u %u\n", rgb_size[0], rgb_size[1], rgb_size[3]);
-    printf("%u %u %u\n", depth_size[0], depth_size[1], depth_size[3]);
+    mexPrintf("%u %u %u\n", rgb_size[0], rgb_size[1], rgb_size[3]);
+    mexPrintf("%u %u %u\n", depth_size[0], depth_size[1], depth_size[3]);
 
     plhs[0] = mxCreateNumericArray(3, rgb_size, mxUINT8_CLASS, mxREAL); /* RGB */
     plhs[1] = mxCreateNumericArray(1, depth_size, mxUINT16_CLASS, mxREAL); /* Depth */
@@ -1388,7 +1398,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         strcpy(ErrBuffer, "Missing command string. Expecting one of:");
         for(h = 0; h < sizeof(CmdTable) / sizeof(CmdTable[0]); h++)
         {
-            sprintf(StrBuffer, "\n %s", CmdTable[h].pCmd);
+            mexPrintf(StrBuffer, "\n %s", CmdTable[h].pCmd);
             strcat(ErrBuffer, StrBuffer);
         }
 
