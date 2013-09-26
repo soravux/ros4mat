@@ -1485,8 +1485,9 @@ int main(int argc, char **argv)
                         ROS_DEBUG("Received serial command");
                         memcpy(&lSerialCmd, msg, sizeof(msgSerialCmd));
 
-                        bufferPort = new char[lSerialCmd.portBufferLength];
+                        bufferPort = new char[lSerialCmd.portBufferLength+1];
                         memcpy(bufferPort, msg + sizeof(msgSerialCmd), lSerialCmd.portBufferLength);
+                        bufferPort[lSerialCmd.portBufferLength] = 0;        // To terminate string
 
                         if(lSerialCmd.sendLength > 0){
                             bufferData = new char[lSerialCmd.sendLength];
