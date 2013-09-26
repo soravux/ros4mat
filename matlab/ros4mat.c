@@ -87,6 +87,8 @@
 #include "../thirdparty/easyzlib.h"
 #include "../thirdparty/picojpeg.h"
 
+#include "../thirdparty/nanojpeg.c"
+
 #define REMOTE_SERVER_PORT    1500
 
 /* Global variables definition */
@@ -392,6 +394,18 @@ union subscriptionParameters
 
 /* This is the most NON-thread-safe code you have ever seen */
 
+void decodeJPEG2(char *inStream, uint32_t dataSize, uint32_t *outImage){
+    unsigned char* out = (unsigned char*)outImage;
+
+    njInit();
+    if (njDecode(inStream, dataSize)) {
+        mexPrintf("Error decoding the input file.\n");
+        return;
+    }
+    memcpy(out, njGetImage(), njGetImageSize());
+}
+
+
 char* jpeg_datastream;
 int jpeg_size = 0;
 int jpeg_pos = 0;
@@ -419,10 +433,6 @@ void decodeJPEG(char *inStream, uint32_t dataSize, uint8_t *outImage)
     int x, y, bx, by;
     int mcu_x = 0;
     int mcu_y = 0;
-
-    mexPrintf("m_width: %u\n", imageInfo.m_width);
-    mexPrintf("m_height: %u\n", imageInfo.m_height);
-    mexPrintf("m_comps: %u\n", imageInfo.m_comps);
 
     for ( ; ; ) {
         status = pjpeg_decode_mcu();
@@ -985,6 +995,9 @@ void format_camera_image(msgCam *lCam, char *msg, unsigned int i, unsigned char 
             inPixelSource = (char *) mxMalloc(sizeImg * sizeof(char));
             mexPrintf("Decoding JPEG\n");
             mexEvalString("drawnow");
+/*
+            decodeJPEG2(msg, lCam->sizeData, (uint32_t*)inPixelSource);
+*/
             decodeJPEG(msg, lCam->sizeData, (uint8_t*)inPixelSource);
             mexPrintf("JPEG decoded\n");
             mexEvalString("drawnow");
