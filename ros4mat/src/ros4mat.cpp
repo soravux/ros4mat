@@ -234,7 +234,7 @@ void dataCamReceived(const ros4mat::M_Cam::ConstPtr &msg)
         lMsg->sizeData = (msg->image).size();
         lMsg->compressionType = msg->compressionRatio;
 
-        if(lMsg->sizeData != lMsg->width * lMsg->height * 3 && lMsg->compressionType != 0)
+        if(lMsg->sizeData != lMsg->width * lMsg->height * 3 && lMsg->compressionType == 0)
         {
             ROS_WARN(
                 "Incoherence de taille des buffers de camera (taille prevue : %d, obtenue : %d",
@@ -283,7 +283,7 @@ void dataStereoCamReceived(const ros4mat::M_StereoCam::ConstPtr &image)
         lMsg->sizeData_L = (image->image_left).size();
         lMsg->sizeData_R = (image->image_right).size();
         lMsg->compressionType = image->compressionRatio;
-        if(lMsg->sizeData_L != lMsg->width_L * lMsg->height_L * 3 && lMsg->compressionType != 0)
+        if(lMsg->sizeData_L != lMsg->width_L * lMsg->height_L * 3 && lMsg->compressionType == 0)
         {
             ROS_WARN(
                 "Incoherence de taille des buffers de camera (taille prevue : %d, obtenue : %d",
@@ -292,7 +292,7 @@ void dataStereoCamReceived(const ros4mat::M_StereoCam::ConstPtr &image)
             );
         }
 
-        if((image->image_left).size() != (image->image_right).size() && lMsg->compressionType != 0)
+        if((image->image_left).size() != (image->image_right).size() && lMsg->compressionType == 0)
         {
             ROS_WARN(
                 "Incoherence de taille entre camera gauche et droite (gauche : %d, droite : %d )",
