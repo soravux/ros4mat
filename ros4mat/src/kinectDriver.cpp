@@ -58,6 +58,7 @@ void dataKinectSync(const sensor_msgs::Image::ConstPtr& imageRGB, const sensor_m
 	msg.channels = 3;
 
 	msg.timestamp = imageDepth->header.stamp.toSec();
+	ROS_DEBUG("Encoding de l'image Kinect : %s", imageRGB->encoding.c_str());
 
 
 	msg.compressionRatio = compression;
