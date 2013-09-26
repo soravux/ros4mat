@@ -1,0 +1,26 @@
+Naming convention
+=================
+
+The diverse ROS publisher nodes (the drivers, for instance) are named 
+according to these rules:
+
+
+Package name (created with roscreate-pkg): P_packageName
+	ie.: P_sensors, P_communications
+	Note: a single package can (and should) contain multiple nodes
+
+Node names at runtime (ros::init parameter): D_nodeName if publisher, S_nodeName if subscriber
+	ie.: D_IMU, D_battery, S_matlabTransfer
+
+Message names: M_nodeName_additionalDescription
+	ie.: M_battery, M_IMU_acceleration
+	Normally, a single message type is allowed per node
+
+Topic names (parameter of NodeHandle.advertise): nodeName/data
+	ie.: D_battery/data
+	We can also specify a topic nodeName/debug if necessary
+
+cpp filenames: no restrictions aside from no space allowed or non-basic ASCII characters.
+
+Executable names (specified in CMakeLists): E_nodeName
+	ie.: E_battery

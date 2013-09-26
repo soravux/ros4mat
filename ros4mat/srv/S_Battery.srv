@@ -1,0 +1,8 @@
+bool subscribe
+uint16 battFreqAcq
+uint32 battBufferSize
+bool sendCmdChargeDecharge
+bool chargeState
+bool dechargeState
+---
+int8 ret

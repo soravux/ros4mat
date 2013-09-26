@@ -1,0 +1,14 @@
+<package>
+  <description brief="ros4mat">
+    ros4mat allows bidirectional local or remote comunication between MATLAB and ROS.
+  </description>
+  <author>Marc-Andre Gardner, Yannick Hold-Geoffroy et MYDYM Tech</author>
+  <license>LGPL</license>
+  <review status="unreviewed" notes=""/>
+  <url>https://bitbucket.org/soravux/ros4mat</url>
+  <depend package="roscpp"/>
+  <depend package="gps_common"/>
+  <depend package="gpsd_client"/>
+  <depend package="rosconsole"/>
+  <depend package="std_srvs"/>
+</package>
