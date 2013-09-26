@@ -521,8 +521,7 @@ void dataKinectReceived(const ros4mat::M_Kinect::ConstPtr &msg)
                 (*lClientIt).second.buffersInfo[MSGID_KINECT]
         )
         {
-            ROS_INFO("Pruning Kinect data");
-            ROS_INFO("Adresse RGB = %p, adresse Depth = %p", ((msgKinectInternal *) (*lClientIt).second.subscribers[MSGID_KINECT].second.front())->infoRGB.cptr, ((msgKinectInternal *) (*lClientIt).second.subscribers[MSGID_KINECT].second.front())->infoDepth.cptr)
+            ROS_DEBUG("Pruning Kinect data");
             delete[] ((msgKinectInternal *) (*lClientIt).second.subscribers[MSGID_KINECT].second.front())->infoRGB.cptr;
             delete[] ((msgKinectInternal *) (*lClientIt).second.subscribers[MSGID_KINECT].second.front())->infoDepth.cptr;
             delete(msgKinectInternal *) ((*lClientIt).second.subscribers[MSGID_KINECT].second.front());
