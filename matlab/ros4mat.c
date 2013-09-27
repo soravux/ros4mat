@@ -291,7 +291,6 @@ void logico_start(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     mexMakeMemoryPersistent(sock_in);
     mexMakeMemoryPersistent(main_socket);
 
-    /* mexMakeMemoryPersistent(&initialized); */
     mexAtExit(cleanup);
 
     result = setsockopt(*main_socket, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int));
@@ -300,12 +299,12 @@ void logico_start(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     tv.tv_sec = 10;
     tv.tv_usec = 0;
 
-    /* Gestion du endpoint local */
+    /* Local endpoint */
     cliAddr.sin_family = AF_INET;
     cliAddr.sin_addr.s_addr = htonl(INADDR_ANY);
     cliAddr.sin_port = htons(0);
 
-    /* Gestion du endpoint remote (Robot) */
+    /* Remote endpoint (Robot) */
     sock_in->sin_family = AF_INET;
     sock_in->sin_port = htons(REMOTE_SERVER_PORT);
     if (nrhs < 1)
@@ -344,7 +343,7 @@ void logico_start(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         sizeof(msgConnect)
     );
 
-    /* Validate received message and */
+    /* Validate received message and keep the client_id received */
     receive_message_header((void**)&msg);
 
     memcpy(&lHeader, msg, sizeof(msgHeader));
@@ -429,7 +428,6 @@ void decodeJPEG(char *inStream, uint32_t dataSize, uint8_t *outImage)
     jpeg_size = dataSize;
     jpeg_pos = 0;
     int status = pjpeg_decode_init(&imageInfo, pjpeg_need_bytes_callback, NULL, 0);
-    /* const unsigned int row_pitch = imageInfo.m_width * imageInfo.m_comps; */
     int x, y, bx, by;
     int mcu_x = 0;
     int mcu_y = 0;
@@ -475,7 +473,6 @@ void decodeJPEG(char *inStream, uint32_t dataSize, uint8_t *outImage)
                     for (by = 0; by < by_limit; by++) {
                         for (bx = 0; bx < bx_limit; bx++) {
                             #define STRIDE_JPEG  ((mcu_x * imageInfo.m_MCUWidth + x + bx + (mcu_y * imageInfo.m_MCUHeight + y + by) * imageInfo.m_width) * imageInfo.m_comps)
-                            /* mexPrintf("%u\n", STRIDE_JPEG); */
                             outImage[STRIDE_JPEG + 0] = *pSrcR++;
                             outImage[STRIDE_JPEG + 1] = *pSrcG++;
                             outImage[STRIDE_JPEG + 2] = *pSrcB++;
@@ -653,7 +650,7 @@ void logico_subscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]
     );
 }
 
-/* */
+
 void logico_unsubscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
     msgUnsubscribe  lUnsubscribeMessage;
@@ -687,7 +684,7 @@ void logico_unsubscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs
     );
 }
 
-/* */
+
 msgHeader logico_send_data_request(char inType, char **msg, unsigned int inStructSize)
 {
     /* The double pointer on msg is mandatory in C */
@@ -726,8 +723,7 @@ msgHeader logico_send_data_request(char inType, char **msg, unsigned int inStruc
     recvBytes = 0;
     while(recvBytes < expectedRecvSize)
     {
-        /* mexPrintf("Expected recvBytes = %d, actually received = %d, difference = %d\n", expectedRecvSize, recvBytes, expectedRecvSize - recvBytes);
-        mexEvalString("drawnow"); */
+        /* This select was used for a timeout bug generates problems */
         /*timeout.tv_sec = 30;
         timeout.tv_usec = 0;
         i = select(*main_socket + 1, &read_fds, NULL, NULL, &timeout);
@@ -776,7 +772,6 @@ msgHeader logico_send_data_request(char inType, char **msg, unsigned int inStruc
 }
 
 
-/* */
 void logico_imu(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
     msgImu          lImu;
@@ -789,7 +784,7 @@ void logico_imu(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
     lHeader = logico_send_data_request(MSGID_IMU, &msg, sizeof(msgImu));
 
-    /* Formattage pour Matlab */
+    /* Matlab formatting */
     plhs[0] = mxCreateDoubleMatrix(9, lHeader.size, mxREAL);
     plhs[1] = mxCreateDoubleMatrix(1, lHeader.size, mxREAL);
     out_data = (double *) mxGetPr(plhs[0]);
@@ -813,7 +808,7 @@ void logico_imu(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     mxFree(msg);
 }
 
-/* */
+
 void logico_adc(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
     char            *msg = NULL;
@@ -826,7 +821,7 @@ void logico_adc(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
     lHeader = logico_send_data_request(MSGID_ADC, &msg, sizeof(msgAdc));
 
-    /* Formattage pour Matlab */
+    /* Matlab formatting */
     plhs[0] = mxCreateDoubleMatrix(8, lHeader.size, mxREAL);
     plhs[1] = mxCreateDoubleMatrix(1, lHeader.size, mxREAL);
     out_data = (double *) mxGetPr(plhs[0]);
@@ -849,7 +844,7 @@ void logico_adc(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     mxFree(msg);
 }
 
-/* */
+
 void logico_serial(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
     char            *msg = NULL;
@@ -917,7 +912,7 @@ void logico_serial(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     mxFree(msg);
 }
 
-/* */
+
 void logico_dout(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
     char            *msg = NULL;
@@ -945,7 +940,7 @@ void logico_dout(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     );
 }
 
-/* */
+
 void logico_gps(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
     char            *msg = NULL;
@@ -958,7 +953,7 @@ void logico_gps(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
     lHeader = logico_send_data_request(MSGID_GPS, &msg, sizeof(msgGps));
 
-    /* Formattage pour Matlab */
+    /* Matlab formatting */
     plhs[0] = mxCreateDoubleMatrix(7, lHeader.size, mxREAL);
     plhs[1] = mxCreateDoubleMatrix(1, lHeader.size, mxREAL);
     out_data = (double *) mxGetPr(plhs[0]);
@@ -1017,7 +1012,7 @@ void format_camera_image(msgCam *lCam, char *msg, unsigned int i, unsigned char 
     out_data_ts[i] = (double) lCam->timestamp;
 }
 
-/* */
+
 void logico_camera(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
     char            *msg = NULL;
@@ -1068,7 +1063,7 @@ void logico_camera(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     mxFree(msg);
 }
 
-/* */
+
 void logico_camera_stereo(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
     char            *msg = NULL;
@@ -1108,7 +1103,6 @@ void logico_camera_stereo(int nlhs, mxArray *plhs[], int nrhs, const mxArray *pr
 
     for(i = 0; i < lHeader.size * 2; i += 2)
     {
-        /* On passe sur toutes les images */
         memcpy(&lCam_l, msg + sizeof(msgHeader) + (i + 0) * sizeof(msgCam), sizeof(msgCam));
         memcpy(&lCam_r, msg + sizeof(msgHeader) + (i + 1) * sizeof(msgCam), sizeof(msgCam));
 
@@ -1173,7 +1167,7 @@ void format_kinect_depth(msgCam *lCam, char *msg, unsigned int i, unsigned short
     out_data_ts[i] = (double) lCam->timestamp;
 }
 
-/* */
+
 void logico_kinect(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
     char            *msg = NULL;
@@ -1240,49 +1234,7 @@ void logico_kinect(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     mxFree(msg);
 }
 
-/* */
-void logico_kinect_ir(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
-{
-    char            *msg = NULL;
-    msgHeader       lHeader;
-    msgCam          lCam;
-    unsigned int    i;
-    unsigned int    a, b, y, x;
-    unsigned short  *out_data;
-    double          *out_data_ts;
-    unsigned int    sizeImg = 0;
-    unsigned int    cam_size[4] = { 0, 0, 1, 0 };
 
-    if (initialized == 0) mexErrMsgTxt("No connection established.");
-
-    lHeader = logico_send_data_request(MSGID_KINECT_DEPTH, &msg, sizeof(msgCam));
-
-    memcpy(&lCam, msg + sizeof(msgHeader), sizeof(msgCam));
-
-    cam_size[0] = lCam.height;
-    cam_size[1] = lCam.width;
-    cam_size[2] = lHeader.size;
-
-    plhs[0] = mxCreateNumericArray(4, cam_size, mxUINT16_CLASS, mxREAL);    /* 16 bits */
-    plhs[1] = mxCreateDoubleMatrix(1, lHeader.size, mxREAL);
-    out_data = (unsigned short *) mxGetData(plhs[0]);
-    out_data_ts = (double *) mxGetPr(plhs[1]);
-
-    for(i = 0; i < lHeader.size; i++)
-    {
-        format_kinect_depth(
-            (msgCam*)msg + sizeof(msgHeader) + i * sizeof(msgCam),
-            msg + sizeof(msgHeader) + sizeof(msgCam) * lHeader.size + 2 * sizeImg * i,
-            i,
-            out_data,
-            out_data_ts
-        );
-    }
-
-    mxFree(msg);
-}
-
-/* */
 void logico_hokuyo(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
     char            *msg = NULL;
@@ -1335,7 +1287,7 @@ void logico_hokuyo(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     mxFree(msg);
 }
 
-/* */
+
 void logico_computer(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
     char            *msg = NULL;
@@ -1403,12 +1355,10 @@ CmdTable[] =
     { "camera_stereo", logico_camera_stereo },
     { "hokuyo", logico_hokuyo },
     { "kinect", logico_kinect },
-    { "kinect_ir", logico_kinect_ir },
-    { "sorties_numeriques", logico_dout }
+    { "digital_out", logico_dout }
 };
 
 
-/* */
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
     char        StrBuffer[65];
