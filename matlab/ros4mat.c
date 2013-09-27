@@ -896,10 +896,12 @@ void ros4mat_serial(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         sizeof(msgSerialCmd) + lPortSize + ((msgSerialCmd*)msg)->sendLength
     );
 
-    recv(*main_socket, msg, sizeof(msgHeader), MSG_PEEK);
+    /* Get the response message header */
+    receive_message_header((void**)&msg);
+
     memcpy(&lHeader, msg, sizeof(msgHeader));
     if (lHeader.type != MSGID_SERIAL_ANS) {
-        mexErrMsgTxt("Reponse incompatible du robot.");
+        mexErrMsgTxt("Incompatible ros4mat answer.");
     }
 
     /* Reallocate msg buffer for data reception */
