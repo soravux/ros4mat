@@ -181,7 +181,7 @@ void send_message(const char type, uint32_t qty, char *payload, uint32_t payload
 int flush_reception_buffer(void)
 {
     char            *msgEmpty;
-    unsigned int    recvBytes = 0;
+    unsigned int    recvBytes;
 
     ioctl(*main_socket, FIONREAD, &recvBytes);
     if (recvBytes > 0)
@@ -193,6 +193,27 @@ int flush_reception_buffer(void)
 
     return 0;
 }
+
+
+void receive_message(char *destination, unsigned int expectedRecvSize)
+{
+    unsigned int recvBytes = 0;
+    while (recvBytes < expectedRecvSize)
+    {
+        /* This select was used for a timeout bug generates problems */
+        /*timeout.tv_sec = 30;
+        timeout.tv_usec = 0;
+        i = select(*main_socket + 1, &read_fds, NULL, NULL, &timeout);
+        if (i < 0) {
+            mexErrMsgTxt("Network error.");
+        } else if (i == 0) {
+            mexErrMsgTxt("Network timeout error.");
+        }*/
+
+        recvBytes += recv(*main_socket, destination + recvBytes, expectedRecvSize - recvBytes, 0);
+    }
+}
+
 
 /* Receives an uninitialized pointer and receives the header */
 int receive_message_header(void **msg)
@@ -207,7 +228,7 @@ int receive_message_header(void **msg)
 
     FD_ZERO(&read_fds);
     FD_SET(*main_socket, &read_fds);
-    while(recvBytes < sizeof(msgHeader))
+    while (recvBytes < sizeof(msgHeader))
     {
         timeout.tv_sec = 30;
         timeout.tv_usec = 0;
@@ -222,7 +243,14 @@ int receive_message_header(void **msg)
         recvBytes += recv(*main_socket, *msg + recvBytes, sizeof(msgHeader), 0);
     }
 
-    /* TODO: Header Error handling */
+    /* Remote error handling */
+    if (((msgHeader*)msg)->error != 0) {
+        char *errMsg = mxMalloc(((msgHeader*)msg)->compressSize + 1);
+        errMsg[((msgHeader*)msg)->compressSize] = 0; /* Set string termination */
+        receive_message(errMsg, ((msgHeader*)msg)->compressSize);
+        mexPrintf("An error was reported by the robot:\n%s\n", errMsg);
+        mexErrMsgTxt("Cannot process information because of previous error.");
+    }
 }
 
 
@@ -723,22 +751,8 @@ msgHeader ros4mat_send_data_request(char inType, char **msg, unsigned int inStru
 
     /* Data receiving loop */
     expectedRecvSize = lHeader.compressSize;
-    msgCompress = (char *) mxCalloc(1, expectedRecvSize);
-    recvBytes = 0;
-    while(recvBytes < expectedRecvSize)
-    {
-        /* This select was used for a timeout bug generates problems */
-        /*timeout.tv_sec = 30;
-        timeout.tv_usec = 0;
-        i = select(*main_socket + 1, &read_fds, NULL, NULL, &timeout);
-        if (i < 0) {
-            mexErrMsgTxt("Network error.");
-        } else if (i == 0) {
-            mexErrMsgTxt("Network timeout error.");
-        }*/
-
-        recvBytes += recv(*main_socket, msgCompress + recvBytes, expectedRecvSize - recvBytes, 0);
-    }
+    msgCompress = (char *) mxCalloc(expectedRecvSize, sizeof(char));
+    receive_message(msgCompress, expectedRecvSize);
 
     /* Rebuild a new message with the data annexed to the header */
     mxFree(*msg);
@@ -908,7 +922,7 @@ void ros4mat_serial(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     mxFree(msg);
     msg = (char *) mxCalloc(1, sizeof(msgHeader) + lHeader.size * sizeof(msgSerialAns));
 
-    recv(*main_socket, msg, sizeof(msgHeader) + lHeader.size * sizeof(msgSerialAns), 0);
+    receive_message(msg, sizeof(msgHeader) + lHeader.size * sizeof(msgSerialAns));
 
     /* Matlab formatting */
     memcpy(&lSerieAns, msg + sizeof(msgHeader), sizeof(msgSerialAns));
