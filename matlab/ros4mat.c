@@ -226,7 +226,7 @@ int receive_message_header(void **msg)
 }
 
 
-void logico_close(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
+void ros4mat_close(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
     send_message(MSGID_QUIT, 0, 0, 0);
 
@@ -247,12 +247,12 @@ void cleanup()
     /* To be done on the parent MATLAB onClose software */
     if (initialized != 0)
     {
-        logico_close(0, 0, 0, 0);
+        ros4mat_close(0, 0, 0, 0);
     }
 }
 
 /* */
-void logico_start(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
+void ros4mat_start(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
     unsigned int        i = 0;
     int                 h = 0;
@@ -501,7 +501,7 @@ void decodeJPEG(char *inStream, uint32_t dataSize, uint8_t *outImage)
  ******************************************************************************/
 
 
-void logico_subscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
+void ros4mat_subscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
     char                    *msg;
     msgHeader               lHeader;
@@ -651,7 +651,7 @@ void logico_subscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]
 }
 
 
-void logico_unsubscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
+void ros4mat_unsubscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
     msgUnsubscribe  lUnsubscribeMessage;
     char            StrBuffer[65];
@@ -685,7 +685,7 @@ void logico_unsubscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs
 }
 
 
-msgHeader logico_send_data_request(char inType, char **msg, unsigned int inStructSize)
+msgHeader ros4mat_send_data_request(char inType, char **msg, unsigned int inStructSize)
 {
     /* The double pointer on msg is mandatory in C */
     msgHeader       lHeader;
@@ -772,7 +772,7 @@ msgHeader logico_send_data_request(char inType, char **msg, unsigned int inStruc
 }
 
 
-void logico_imu(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
+void ros4mat_imu(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
     msgImu          lImu;
     msgHeader       lHeader;
@@ -782,7 +782,7 @@ void logico_imu(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
     if (initialized == 0) mexErrMsgTxt("No connection established.");
 
-    lHeader = logico_send_data_request(MSGID_IMU, &msg, sizeof(msgImu));
+    lHeader = ros4mat_send_data_request(MSGID_IMU, &msg, sizeof(msgImu));
 
     /* Matlab formatting */
     plhs[0] = mxCreateDoubleMatrix(9, lHeader.size, mxREAL);
@@ -809,7 +809,7 @@ void logico_imu(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 }
 
 
-void logico_adc(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
+void ros4mat_adc(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
     char            *msg = NULL;
     msgHeader       lHeader;
@@ -819,7 +819,7 @@ void logico_adc(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
     if (initialized == 0) mexErrMsgTxt("No connection established.");
 
-    lHeader = logico_send_data_request(MSGID_ADC, &msg, sizeof(msgAdc));
+    lHeader = ros4mat_send_data_request(MSGID_ADC, &msg, sizeof(msgAdc));
 
     /* Matlab formatting */
     plhs[0] = mxCreateDoubleMatrix(8, lHeader.size, mxREAL);
@@ -845,7 +845,7 @@ void logico_adc(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 }
 
 
-void logico_serial(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
+void ros4mat_serial(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
     char            *msg = NULL;
     msgHeader       lHeader;
@@ -913,7 +913,7 @@ void logico_serial(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 }
 
 
-void logico_dout(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
+void ros4mat_dout(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
     char            *msg = NULL;
     msgHeader       lHeader;
@@ -941,7 +941,7 @@ void logico_dout(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 }
 
 
-void logico_gps(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
+void ros4mat_gps(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
     char            *msg = NULL;
     msgHeader       lHeader;
@@ -951,7 +951,7 @@ void logico_gps(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
     if (initialized == 0) mexErrMsgTxt("No connection established.");
 
-    lHeader = logico_send_data_request(MSGID_GPS, &msg, sizeof(msgGps));
+    lHeader = ros4mat_send_data_request(MSGID_GPS, &msg, sizeof(msgGps));
 
     /* Matlab formatting */
     plhs[0] = mxCreateDoubleMatrix(7, lHeader.size, mxREAL);
@@ -1013,7 +1013,7 @@ void format_camera_image(msgCam *lCam, char *msg, unsigned int i, unsigned char 
 }
 
 
-void logico_camera(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
+void ros4mat_camera(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
     char            *msg = NULL;
     msgHeader       lHeader;
@@ -1028,7 +1028,7 @@ void logico_camera(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     if (initialized == 0) mexErrMsgTxt("No connection established.");
     setbuf(stdout, NULL);
 
-    lHeader = logico_send_data_request(MSGID_WEBCAM, &msg, sizeof(msgCam));
+    lHeader = ros4mat_send_data_request(MSGID_WEBCAM, &msg, sizeof(msgCam));
 
     if (lHeader.size > 0) {
         memcpy(&lCam, msg + sizeof(msgHeader), sizeof(msgCam));
@@ -1064,7 +1064,7 @@ void logico_camera(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 }
 
 
-void logico_camera_stereo(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
+void ros4mat_camera_stereo(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
     char            *msg = NULL;
     char            *inPixelSource_l, *inPixelSource_r;
@@ -1080,7 +1080,7 @@ void logico_camera_stereo(int nlhs, mxArray *plhs[], int nrhs, const mxArray *pr
 
     if (initialized == 0) mexErrMsgTxt("No connection established.");
 
-    lHeader = logico_send_data_request(MSGID_WEBCAM_STEREO, &msg, sizeof(msgCam));
+    lHeader = ros4mat_send_data_request(MSGID_WEBCAM_STEREO, &msg, sizeof(msgCam));
 
     if (lHeader.size > 0) {
         memcpy(&lCam_l, msg + sizeof(msgHeader), sizeof(msgCam));
@@ -1168,7 +1168,7 @@ void format_kinect_depth(msgCam *lCam, char *msg, unsigned int i, unsigned short
 }
 
 
-void logico_kinect(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
+void ros4mat_kinect(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
     char            *msg = NULL;
     char            *image_in_msg;
@@ -1184,7 +1184,7 @@ void logico_kinect(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
     if (initialized == 0) mexErrMsgTxt("No connection established.");
 
-    lHeader = logico_send_data_request(MSGID_KINECT, &msg, sizeof(msgCam));
+    lHeader = ros4mat_send_data_request(MSGID_KINECT, &msg, sizeof(msgCam));
 
     if (lHeader.size > 0) {
         memcpy(&lKinect, msg + sizeof(msgHeader), sizeof(msgKinect));
@@ -1235,7 +1235,7 @@ void logico_kinect(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 }
 
 
-void logico_hokuyo(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
+void ros4mat_hokuyo(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
     char            *msg = NULL;
     msgHeader       lHeader;
@@ -1247,7 +1247,7 @@ void logico_hokuyo(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
     if (initialized == 0) mexErrMsgTxt("No connection established.");
 
-    lHeader = logico_send_data_request(MSGID_HOKUYO, &msg, sizeof(msgHokuyo));
+    lHeader = ros4mat_send_data_request(MSGID_HOKUYO, &msg, sizeof(msgHokuyo));
     if (lHeader.size > 0) {
         memcpy(&lHokuyo, msg + sizeof(msgHeader), sizeof(msgHokuyo));
     } else {
@@ -1288,7 +1288,7 @@ void logico_hokuyo(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 }
 
 
-void logico_computer(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
+void ros4mat_computer(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
     char            *msg = NULL;
     msgHeader       lHeader;
@@ -1298,7 +1298,7 @@ void logico_computer(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
     if (initialized == 0) mexErrMsgTxt("No connection established.");
 
-    lHeader = logico_send_data_request(MSGID_COMPUTER, &msg, sizeof(msgComputer));
+    lHeader = ros4mat_send_data_request(MSGID_COMPUTER, &msg, sizeof(msgComputer));
 
     /* Matlab formatting */
     plhs[0] = mxCreateDoubleMatrix(15, lHeader.size, mxREAL);
@@ -1342,20 +1342,22 @@ struct _cmd_data
 }
 CmdTable[] =
 {
-    { "connect", logico_start },
-    { "close", logico_close },
-    { "subscribe", logico_subscribe },
-    { "unsubscribe", logico_unsubscribe },
-    { "adc", logico_adc },
-    { "imu", logico_imu },
-    { "gps", logico_gps },
-    { "serie", logico_serial },
-    { "ordinateur", logico_computer },
-    { "camera", logico_camera },
-    { "camera_stereo", logico_camera_stereo },
-    { "hokuyo", logico_hokuyo },
-    { "kinect", logico_kinect },
-    { "digital_out", logico_dout }
+    { "connect", ros4mat_start },
+    { "close", ros4mat_close },
+    { "subscribe", ros4mat_subscribe },
+    { "unsubscribe", ros4mat_unsubscribe },
+    { "adc", ros4mat_adc },
+    { "imu", ros4mat_imu },
+    { "gps", ros4mat_gps },
+    { "serie", ros4mat_serial }, /* DEPRECATED: Supporting french naming for legacy purposes */
+    { "serial", ros4mat_serial },
+    { "ordinateur", ros4mat_computer }, /* DEPRECATED: See above. */
+    { "computer", ros4mat_computer },
+    { "camera", ros4mat_camera },
+    { "camera_stereo", ros4mat_camera_stereo },
+    { "hokuyo", ros4mat_hokuyo },
+    { "kinect", ros4mat_kinect },
+    { "digital_out", ros4mat_dout }
 };
 
 
