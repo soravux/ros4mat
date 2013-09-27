@@ -536,105 +536,109 @@ void ros4mat_subscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[
     if (h != 0) { mexErrMsgTxt("Unsupported node."); }
 
     /* Step 2: Register parameters */
-    if (nrhs < 2) { mexErrMsgTxt("Please specify an acquisition frequency."); }
-    if (nrhs > 3) {
-        /* Buffer size specified */
-        lSubscribeMessage.bufferSize = (uint32_t) mxGetScalar(prhs[3]);
+    if (nrhs < 2) {
+        /* Silent subscription was requested. */
+        lSubscribeMessage.silentSubscribe = 1;
     } else {
-        /* Use the acquisition frequency the buffer size (buffer 1 second) */
-        lSubscribeMessage.bufferSize = (uint16_t) mxGetScalar(prhs[1]);
-    }
-    /* Parse parameters for each sensor */
-    switch (lSubscribeMessage.typeCapteur) {
-        case MSGID_ADC:
-            lParameters.adc.channels = (unsigned char) mxGetScalar(prhs[2]);
-            if (!lParamSize) { lParamSize = sizeof(paramsAdc); }
-        case MSGID_GPS:
-        case MSGID_IMU:
-            /* These messages have freqSend added */
-            if (nrhs > 4) {
-                lParameters.adc.freqSend = (uint16_t) mxGetScalar(prhs[4]);
-                if (lParameters.adc.freqSend > (uint16_t) mxGetScalar(prhs[1])) {
-                    lParameters.adc.freqSend = (uint16_t) mxGetScalar(prhs[1]);
+        if (nrhs > 3) {
+            /* Buffer size specified */
+            lSubscribeMessage.bufferSize = (uint32_t) mxGetScalar(prhs[3]);
+        } else {
+            /* Use the acquisition frequency the buffer size (default buffer of 1 second) */
+            lSubscribeMessage.bufferSize = (uint16_t) mxGetScalar(prhs[1]);
+        }
+        /* Parse parameters for each sensor */
+        switch (lSubscribeMessage.typeCapteur) {
+            case MSGID_ADC:
+                lParameters.adc.channels = (unsigned char) mxGetScalar(prhs[2]);
+                if (!lParamSize) { lParamSize = sizeof(paramsAdc); }
+            case MSGID_GPS:
+            case MSGID_IMU:
+                /* These messages have freqSend added */
+                if (nrhs > 4) {
+                    lParameters.adc.freqSend = (uint16_t) mxGetScalar(prhs[4]);
+                    if (lParameters.adc.freqSend > (uint16_t) mxGetScalar(prhs[1])) {
+                        lParameters.adc.freqSend = (uint16_t) mxGetScalar(prhs[1]);
+                    }
+                } else {
+                    /* Put default freqSend value based of freqAcquisition */
+                    lParameters.adc.freqSend = (uint16_t) ((float) mxGetScalar(prhs[1]) / 4.0 + 10.0);
                 }
-            } else {
-                /* Put default freqSend value based of freqAcquisition */
-                lParameters.adc.freqSend = (uint16_t) ((float) mxGetScalar(prhs[1]) / 4.0 + 10.0);
-            }
-            if (!lParamSize) { lParamSize = sizeof(paramsImu); }
-        case MSGID_HOKUYO:
-        case MSGID_COMPUTER:
-            lParameters.adc.freqAcquisition = (uint16_t) mxGetScalar(prhs[1]);
-            if (!lParamSize) { lParamSize = sizeof(paramsHokuyo); }
-            break;
+                if (!lParamSize) { lParamSize = sizeof(paramsImu); }
+            case MSGID_HOKUYO:
+            case MSGID_COMPUTER:
+                lParameters.adc.freqAcquisition = (uint16_t) mxGetScalar(prhs[1]);
+                if (!lParamSize) { lParamSize = sizeof(paramsHokuyo); }
+                break;
 
-        case MSGID_WEBCAM_STEREO:
-            if (!lParamSize) { lParamSize = sizeof(paramsStereoCam); }
-            if (nrhs > 5) {
-                lParameters.stereocam.idLeft = (unsigned char) mxGetScalar(prhs[5]);
-            }
-            if (nrhs > 6) {
-                lParameters.stereocam.idRight = (unsigned char) mxGetScalar(prhs[6]);
-            }
-            if (nrhs > 7) {
-                lParameters.stereocam.compression = (unsigned char) mxGetScalar(prhs[7]);
-            }
-            /* I'm sorry! :( */
-            goto parse_resolution;
-        case MSGID_WEBCAM:
-            if (!lParamSize) { lParamSize = sizeof(paramsCamera); }
-            if (nrhs > 6) {
-                lParameters.cam.compression = (unsigned char) mxGetScalar(prhs[6]);
-            } else {
-                lParameters.cam.compression = MSGID_WEBCAM_NOCOMPRESSION;
-            }
-            /* Camera ID */
-            if (nrhs > 5) {
-                lParameters.cam.id = (unsigned char) mxGetScalar(prhs[5]);
-            }
-            goto parse_resolution;
-        case MSGID_KINECT:
-            if (!lParamSize) { lParamSize = sizeof(paramsKinect); }
+            case MSGID_WEBCAM_STEREO:
+                if (!lParamSize) { lParamSize = sizeof(paramsStereoCam); }
+                if (nrhs > 5) {
+                    lParameters.stereocam.idLeft = (unsigned char) mxGetScalar(prhs[5]);
+                }
+                if (nrhs > 6) {
+                    lParameters.stereocam.idRight = (unsigned char) mxGetScalar(prhs[6]);
+                }
+                if (nrhs > 7) {
+                    lParameters.stereocam.compression = (unsigned char) mxGetScalar(prhs[7]);
+                }
+                /* I'm sorry! :( */
+                goto parse_resolution;
+            case MSGID_WEBCAM:
+                if (!lParamSize) { lParamSize = sizeof(paramsCamera); }
+                if (nrhs > 6) {
+                    lParameters.cam.compression = (unsigned char) mxGetScalar(prhs[6]);
+                } else {
+                    lParameters.cam.compression = MSGID_WEBCAM_NOCOMPRESSION;
+                }
+                /* Camera ID */
+                if (nrhs > 5) {
+                    lParameters.cam.id = (unsigned char) mxGetScalar(prhs[5]);
+                }
+                goto parse_resolution;
+            case MSGID_KINECT:
+                if (!lParamSize) { lParamSize = sizeof(paramsKinect); }
 
-            /* Camera ID */
-            if (nrhs > 5) {
-                lParameters.cam.id = (unsigned char) mxGetScalar(prhs[5]);
-            }
+                /* Camera ID */
+                if (nrhs > 5) {
+                    lParameters.cam.id = (unsigned char) mxGetScalar(prhs[5]);
+                }
 
-            if (nrhs > 6) {
-                lParameters.kinect.compressionRGB = (unsigned char) mxGetScalar(prhs[6]);
-            } else {
-                lParameters.kinect.compressionRGB = MSGID_WEBCAM_NOCOMPRESSION;
-            }
+                if (nrhs > 6) {
+                    lParameters.kinect.compressionRGB = (unsigned char) mxGetScalar(prhs[6]);
+                } else {
+                    lParameters.kinect.compressionRGB = MSGID_WEBCAM_NOCOMPRESSION;
+                }
 
-        parse_resolution:
-            /* Parse resolution */
-            if (mxGetString(prhs[2], StrBuffer, sizeof(StrBuffer) - 1)) {
-                mexErrMsgTxt("Error: Could not interpretate resolution.");
-            }
-            lParameters.cam.width = (int) atoi(StrBuffer) / 20;
-            if (lParameters.cam.width < 8 || lParameters.cam.width > 80) {
-                mexWarnMsgTxt("Unknown resolution. Reverting to default resolution (320x240).");
-                lParameters.cam.width = 16;
-            }
-            lParameters.cam.width *= 20;
-            lParameters.cam.height = lParameters.cam.width * 3 / 4;
-            lParameters.cam.fps = (uint16_t) mxGetScalar(prhs[1]);
+            parse_resolution:
+                /* Parse resolution */
+                if (mxGetString(prhs[2], StrBuffer, sizeof(StrBuffer) - 1)) {
+                    mexErrMsgTxt("Error: Could not interpretate resolution.");
+                }
+                lParameters.cam.width = (int) atoi(StrBuffer) / 20;
+                if (lParameters.cam.width < 8 || lParameters.cam.width > 80) {
+                    mexWarnMsgTxt("Unknown resolution. Reverting to default resolution (320x240).");
+                    lParameters.cam.width = 16;
+                }
+                lParameters.cam.width *= 20;
+                lParameters.cam.height = lParameters.cam.width * 3 / 4;
+                lParameters.cam.fps = (uint16_t) mxGetScalar(prhs[1]);
 
-            break;
+                break;
 
-        default:
-            mexErrMsgTxt("Unsupported node: Parsing error.");
-            break;
-    }
-    lSubscribeMessage.paramsSize = lParamSize;
-    /* Step 3: Build a message composed of [ msgSubscribe |  parameters ] */
-    msg = mxMalloc( sizeof(msgSubscribe) + lParamSize);
-    memcpy(
-        msg,
-        &lSubscribeMessage,
-        sizeof(msgSubscribe)
-    );
+            default:
+                mexErrMsgTxt("Unsupported node: Parsing error.");
+                break;
+        }
+        lSubscribeMessage.paramsSize = lParamSize;
+        /* Step 3: Build a message composed of [ msgSubscribe |  parameters ] */
+        msg = mxMalloc( sizeof(msgSubscribe) + lParamSize);
+        memcpy(
+            msg,
+            &lSubscribeMessage,
+            sizeof(msgSubscribe)
+        );
+    } /* end not silent subscription */
     memcpy(
         msg + sizeof(msgSubscribe),
         &lParameters,
