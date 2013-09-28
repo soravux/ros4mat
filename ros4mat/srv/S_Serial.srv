@@ -1,0 +1,14 @@
+string port
+uint32 speed
+bool parity
+uint8 stopBits
+uint32 sendBufferLength
+uint32 readBufferLength
+int8[] sendBuffer
+uint32 readTimeoutSec
+uint32 readTimeoutMicro
+bool closeAfterComm
+---
+int8[] receiveBuffer
+uint32 receiveBufferLength
+bool timeoutTrigged
