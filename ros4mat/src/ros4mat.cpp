@@ -135,6 +135,9 @@ struct matlabClient
 
 std::map<uint32_t, matlabClient> clients;    // uint = unique client id
 
+std::string global_lasterror_issued_by = "";    // Name of the function which raised the last error
+std::string global_lasterror = "";              // Used to keep track of the last error between functions and callbacks
+
 void dataAdcReceived(const ros4mat::M_ADC::ConstPtr &msg)
 {
     std::map<uint32_t, matlabClient>::iterator   lClientIt;
@@ -536,7 +539,6 @@ void dataKinectReceived(const ros4mat::M_Kinect::ConstPtr &msg)
 
 
 
-// subscribeTo(lSubscribe.typeCapteur, lSubscribe.bufferSize, bufferSubscribe, lSubscribe.silentSubscribe == 1, nodeRos, clients[lHeader.clientId]);
 int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool subOnly, ros::NodeHandle nodeRos, matlabClient &in_client)
 {
     /* TODO: ADD Buffer toward publishers*/
@@ -608,11 +610,29 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
     switch(typeCapteur)
     {
     case MSGID_ADC:
+        if(subOnly)
+        {   
+            for(unsigned int i = 0; i < 8; i++)
+            {
+                lParamsSetAdc.request.adcChannels[i] = 0;
+            }
 
-        memcpy(&lStructAdc, info, sizeof(lStructAdc));
-
-        if(!subOnly)
-        {
+            lParamsSetAdc.request.adcFreqAcq = 0;
+            lParamsSetAdc.request.adcFreqPoll = 0;
+            lParamsSetAdc.request.adcBufferSize = 0;
+            lParamsSetAdc.request.subscribe = true;
+            if(!ros::service::call("/D_ADC/params", lParamsSetAdc))
+            {
+                ROS_ERROR(
+                    "Le service de parametrage de l'ADC a renvoye une erreur (code %d).",
+                    lParamsSetAdc.response.ret
+                );
+                return -1;
+            }
+        }
+        else
+        {       
+            memcpy(&lStructAdc, info, sizeof(lStructAdc));
             ROS_INFO("Channels info %X", lStructAdc.channels);
             for(unsigned int i = 0; i < 8; i++)
             {
@@ -633,32 +653,11 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
                 return -1;
             }
         }
-        else
-        {
-            for(unsigned int i = 0; i < 8; i++)
-            {
-                lParamsSetAdc.request.adcChannels[i] = 0;
-            }
-
-            lParamsSetAdc.request.adcFreqAcq = 0;
-            lParamsSetAdc.request.adcFreqPoll = 0;
-            lParamsSetAdc.request.adcBufferSize = 0;
-            lParamsSetAdc.request.subscribe = true;
-            if(!ros::service::call("/D_ADC/params", lParamsSetAdc))
-            {
-                ROS_ERROR(
-                    "Le service de parametrage de l'ADC a renvoye une erreur (code %d).",
-                    lParamsSetAdc.response.ret
-                );
-                return -1;
-            }
-        }
 
         sub = nodeRos.subscribe("/D_ADC/data", 2 * SOCKET_SEND_TIMEOUT_SEC * 2000, dataAdcReceived);
         break;
 
     case MSGID_IMU:
-        memcpy(&lStructImu, info, sizeof(lStructImu));
         if(subOnly)
         {
             lParamsSetImu.request.imuFreqAcq = 0;
@@ -676,6 +675,7 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
         }
         else
         {
+            memcpy(&lStructImu, info, sizeof(lStructImu));
             lParamsSetImu.request.imuFreqAcq = lStructImu.freqAcquisition;
             lParamsSetImu.request.imuFreqPoll = lStructImu.freqSend;
             lParamsSetImu.request.imuBufferSize = bufferSize;     // ?!?
@@ -702,7 +702,6 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
         break;
 
     case MSGID_WEBCAM:
-        memcpy(&lStructCamera, info, sizeof(lStructCamera));
         if(subOnly)
         {
             lParamsSetCam.request.subscribe = true;
@@ -722,6 +721,8 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
         }
         else
         {
+
+            memcpy(&lStructCamera, info, sizeof(lStructCamera));
             lParamsSetCam.request.subscribe = true;
             tmpDevice << "/dev/video";
             tmpDevice << (unsigned int) (lStructCamera.id);
@@ -746,7 +747,6 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
         break;
 
     case MSGID_WEBCAM_STEREO:
-        memcpy(&lStructStereoCam, info, sizeof(lStructStereoCam));
         if(subOnly)
         {
             lParamsSetStereoCam.request.subscribe = true;
@@ -767,6 +767,7 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
         }
         else
         {
+            memcpy(&lStructStereoCam, info, sizeof(lStructStereoCam));
             lParamsSetStereoCam.request.subscribe = true;
             tmpDevice << "/dev/video";
             tmpDevice << (unsigned int) lStructStereoCam.idLeft;
@@ -795,7 +796,6 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
         break;
 
     case MSGID_KINECT:
-        memcpy(&lStructKinect, info, sizeof(lStructKinect));
         if(subOnly)
         {
             lParamsSetKinect.request.subscribe = true;
@@ -816,6 +816,7 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
         }
         else
         {
+            memcpy(&lStructKinect, info, sizeof(lStructKinect));
             lParamsSetKinect.request.subscribe = true;
             lParamsSetKinect.request.width_rgb = lStructKinect.widthRGB;
             lParamsSetKinect.request.height_rgb = lStructKinect.heightRGB;
@@ -837,7 +838,6 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
         break;
 
     case MSGID_COMPUTER:
-        memcpy(&lStructComputer, info, sizeof(lStructComputer));
         if(subOnly)
         {
             lParamsSetComputer.request.subscribe = true;
@@ -854,6 +854,7 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
         }
         else
         {
+            memcpy(&lStructComputer, info, sizeof(lStructComputer));
             lParamsSetComputer.request.subscribe = true;
             lParamsSetComputer.request.freqAcq = lStructComputer.freqAcquisition;
             lParamsSetComputer.request.bufferSize = bufferSize;
@@ -1090,6 +1091,26 @@ int sendDigitalOutCmd(msgDigitalOut *info)
     return 0;
 }
 
+int sendError(int socketFd, char reqType, char errCode, std::string errorStr){
+    msgHeader lErrorHeader;
+    lErrorHeader.type = reqType;
+    lErrorHeader.size = 0;
+    lErrorHeader.error = errCode;
+    lErrorHeader.compressSize = errorStr.length()+1;
+    lErrorHeader.uncompressSize = errorStr.length()+1;
+    lErrorHeader.compressionType = 0;
+    lErrorHeader.packetTimestamp = ros::Time::now().toSec();
+
+    char *buf = new char[sizeof(msgHeader) + errorStr.length() + 1];    // We include a trailing \0
+
+    memcpy(buf, lErrorHeader, sizeof(msgHeader));
+    memcpy(buf + sizeof(msgHeader), errorStr.c_str(), errorStr.length() + 1);
+
+    sendBytes = send(socketFd, buf, sizeof(msgHeader) + errorStr.length() + 1, 0);
+
+    delete[] buf;
+    return sendBytes;
+}
 
 int sendDataToClient(int socketFd, msgHeader *inHeader, const char *bufferOut, int sizeBuffer, int compressionType)
 {
@@ -1488,7 +1509,12 @@ int main(int argc, char **argv)
                         ROS_DEBUG("Received Subscribe for %X", lSubscribe.typeCapteur);
 
                         if(lSubscribe.paramsSize == 0){
-                            ROS_WARN("Subscribe received a paramsSize of 0. Invalid!");
+                            if(lSubscribe.silentSubscribe == 1){
+                                subscribeTo(lSubscribe.typeCapteur, lSubscribe.bufferSize, 0, true, nodeRos, clients[lHeader.clientId]);
+                            }
+                            else{
+                                ROS_WARN("Subscribe received a paramsSize of 0. Invalid!");
+                            }
                         }
                         else{
                             bufferSubscribe = new char[lSubscribe.paramsSize];
