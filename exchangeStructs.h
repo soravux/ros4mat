@@ -29,36 +29,38 @@
     #pragma pack(1)
 #endif
 
-/*******************************************************************************
- *                              Packet Headers
- ******************************************************************************/
+/* ********************
+ * 0x0X => Commands
+ * ******************** */
+
+#define MSGID_PROTOCOL_VERSION 0x03
 
 #define MSGID_HEADER_NOCOMPRESSION 0x00
 #define MSGID_HEADER_ZLIBCOMPRESSION 0x01
  typedef struct msgHeader msgHeader;
  struct msgHeader{
-    char type;                      /* Type du message (MSGID_*) */
-    char error;                     /* 0 si aucune erreur, sinon code d'erreur */
-                                    /* Si une erreur se produit, aucune donnee n'est envoyee, mais un message d'erreur (string ASCII)
-                                    est inclus apres le header. Sa taille est donnee par uncompressSize et compressSize */
-    uint32_t clientId;              /* Permet d'indiquer que le client etait deja connecte sous un certain ID, 0 si 1ere connexion */
-    uint32_t size;                  /* Nombre de structures du type 'type' envoyees */
-    uint32_t uncompressSize;        /* Size (en octets) du RESTE du message non compresse */
-    uint32_t compressSize;          /* Size (en octets) du RESTE du message qui est compresse */
-    char compressionType;           /* Type de compression utilise dans le paquet */
-    double packetTimestamp;         /* Timestamp de l'envoi du paquet (pour les mesures de perf) */
+    char type;                      /* Message type (MSGID_*) */
+    char error;                     /* 0 if no error happened, otherwise contains the errur number */
+                                    /* If an error happens, no data is sent and an ASCII error message is included after the header.
+                                       its size is given by uncompressSize and compressSize. */
+    uint32_t clientId;              /* Allows previously registered clients to reconnect to the same buffers in the case of connection lost.
+                                       Set to 0 for the first connection. */
+    uint32_t size;                  /* Number of data structures of type 'type' sent after this header */
+    uint32_t uncompressSize;        /* Size (in bytes) of the uncompressed payload (after this header) */
+    uint32_t compressSize;          /* Size (in bytes) of the compressed payload (after this header)*/
+    char compressionType;           /* Compression type used by the payload of this packet. */
+    double packetTimestamp;         /* This packet was sent at this timestamp (for performance ) */
  } PACKEDSTRUCT;
 
-#define MSGID_PROTOCOL_VERSION 0x02
 #define MSGID_CONNECT 0x01
  typedef struct msgConnect msgConnect;
  struct msgConnect{
-    char protocolVersion;           /* */
-    char compression;               /* Activer ou non la compression (voir enum compression_type) */
+    char protocolVersion;
+    char compression;               /* ZLIB compression requested? */
 } PACKEDSTRUCT;
 
 #define MSGID_QUIT 0x02
-/* Aucun message de QUIT necessaire */
+/* No QUIT message required */
 
 #define MSGID_SUBSCRIBE 0x03
 typedef struct msgSubscribe msgSubscribe;
@@ -95,6 +97,7 @@ struct paramsCamera{
     unsigned short height;          /* [Don't move] Hauteur de l'image acquise en pixels */
     unsigned char id;               /* Id de la camera (p. ex. 0 pour /dev/video0) */
     unsigned char compression;      /* Compression de l'image (0 = pas de compression, 0<n<100 = JPEG) */
+    short exposure;                 /* Manual camera exposure */
     unsigned char useROI;           /* Definit si on doit seulement envoyer une partie de l'image */
     unsigned short roiTopLeft;      /* Coordonnees de la sous-image a envoyer */
     unsigned short roiTopRight;
@@ -110,6 +113,8 @@ struct paramsStereoCam{
     unsigned char idLeft;           /* Id de la camera de GAUCHE (p. ex. 0 pour /dev/video0) */
     unsigned char idRight;          /* Id de la camera de DROITE */
     unsigned char compression;      /* Compression de l'image (0 = pas de compression, 0<n<100 = JPEG) */
+    short exposureLeft;             /* Manual camera left exposure */
+    short exposureRight;            /* Manual camera right exposure */
     unsigned char useROI;           /* Definit si on doit seulement envoyer une partie de l'image */
     unsigned short leftRoiTopLeft;  /* Coordonnees de la sous-image a envoyer pour la camera de GAUCHE */
     unsigned short leftRoiTopRight;     
@@ -175,7 +180,16 @@ struct msgDigitalOut{
     char pinD3;
 } PACKEDSTRUCT;
 
-#define MSGID_CONNECT_ACK 0x10
+/* ********************
+ * 0x1X => Acknowledges
+ * ******************** */
+
+#define MSGID_CONNECT_ACK 0x11
+#define MSGID_SUBSCRIBE_ACK 0x13
+
+/* ********************
+ * 0x2X => Sensors
+ * ******************** */
 
 #define MSGID_ADC 0x20
 typedef struct msgAdc msgAdc;
