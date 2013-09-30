@@ -610,6 +610,16 @@ void ros4mat_subscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[
                 if (nrhs > 7) {
                     lParameters.stereocam.compression = (unsigned char) mxGetScalar(prhs[7]);
                 }
+                if (nrhs > 8) {
+                    lParameters.stereocam.exposureLeft = (unsigned char) mxGetScalar(prhs[8]);
+                } else {
+                    lParameters.stereocam.exposureLeft = 300;
+                }
+                if (nrhs > 9) {
+                    lParameters.stereocam.exposureRight = (unsigned char) mxGetScalar(prhs[9]);
+                } else {
+                    lParameters.stereocam.exposureRight = 300;
+                }
                 /* I'm sorry! :( */
                 goto parse_resolution;
             case MSGID_WEBCAM:
@@ -618,6 +628,11 @@ void ros4mat_subscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[
                     lParameters.cam.compression = (unsigned char) mxGetScalar(prhs[6]);
                 } else {
                     lParameters.cam.compression = MSGID_WEBCAM_NOCOMPRESSION;
+                }
+                if (nrhs > 7) {
+                    lParameters.cam.exposure = (unsigned char) mxGetScalar(prhs[7]);
+                } else {
+                    lParameters.cam.exposure = 300;
                 }
                 /* Camera ID */
                 if (nrhs > 5) {
