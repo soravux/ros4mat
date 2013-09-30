@@ -1,0 +1,11 @@
+Header header
+float64[] aX
+float64[] aY
+float64[] aZ
+float64[] rX
+float64[] rY
+float64[] rZ
+float64[] mX
+float64[] mY
+float64[] mZ
+float64[] timestamps
