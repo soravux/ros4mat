@@ -4,3 +4,4 @@ uint32 gpsBufferSize
 ---
 int8 ret
 int8 gpsStatus
+string errorDesc

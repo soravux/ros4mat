@@ -114,7 +114,7 @@ bool newConfReceived(ros4mat::S_Cam::Request& request, ros4mat::S_Cam::Response&
 		ROS_INFO("Fin de la commande (status %i)", ret);
 		
 		ssRequest.str("");
-		ssRequest << "uvcdynctrl --device=" << request.device.substr(5) << " -s \"Exposure (Absolute)\" 400";
+		ssRequest << "uvcdynctrl --device=" << request.device.substr(5) << " -s \"Exposure (Absolute)\"" << request.exposure;
 		ret = system("sleep 4");		// On attend que la camera soit configuree
 		ret = system(ssRequest.str().c_str()); // Bon ok c'est un peu arbitraire. Plus le nombre est petit, plus c'est clair
 

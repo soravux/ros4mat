@@ -5,6 +5,8 @@ uint16 height
 uint16 fps
 uint16 camBufferSize
 uint8 compressionRatio
+int16 exposure
 string calibrationFile
 ---
 int8 ret
+string errorDesc

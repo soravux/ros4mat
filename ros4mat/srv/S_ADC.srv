@@ -5,3 +5,4 @@ uint16 adcFreqPoll
 uint32 adcBufferSize
 ---
 int8 ret
+string errorDesc

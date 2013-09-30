@@ -709,6 +709,7 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
             lParamsSetCam.request.width = 0;
             lParamsSetCam.request.height = 0;
             lParamsSetCam.request.fps = 0;
+            lParamsSetCam.request.exposure = 0;
             ROS_INFO("Envoi de la requete au service");
             if(!ros::service::call("/D_Cam/params", lParamsSetCam))
             {
@@ -732,6 +733,7 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
             lParamsSetCam.request.height = lStructCamera.height;
             lParamsSetCam.request.fps = lStructCamera.fps;
             lParamsSetCam.request.compressionRatio = lStructCamera.compression;
+            lParamsSetCam.request.exposure = lStructCamera.exposure;
             ROS_INFO("Envoi de la requete au service");
             if(!ros::service::call("/D_Cam/params", lParamsSetCam))
             {
@@ -780,7 +782,9 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
             lParamsSetStereoCam.request.width = lStructStereoCam.width;
             lParamsSetStereoCam.request.height = lStructStereoCam.height;
             lParamsSetStereoCam.request.fps = lStructStereoCam.fps;
-            lParamsSetCam.request.compressionRatio = lStructCamera.compression;
+            lParamsSetStereoCam.request.compressionRatio = lStructStereoCam.compression;
+            lParamsSetStereoCam.request.exposure_L = lStructStereoCam.exposureLeft;
+            lParamsSetStereoCam.request.exposure_R = lStructStereoCam.exposureRight;
             ROS_INFO("Envoi de la requete au service");
             if(!ros::service::call("/D_CamStereo/params", lParamsSetStereoCam))
             {
@@ -1103,10 +1107,10 @@ int sendError(int socketFd, char reqType, char errCode, std::string errorStr){
 
     char *buf = new char[sizeof(msgHeader) + errorStr.length() + 1];    // We include a trailing \0
 
-    memcpy(buf, lErrorHeader, sizeof(msgHeader));
+    memcpy(buf, &lErrorHeader, sizeof(msgHeader));
     memcpy(buf + sizeof(msgHeader), errorStr.c_str(), errorStr.length() + 1);
 
-    sendBytes = send(socketFd, buf, sizeof(msgHeader) + errorStr.length() + 1, 0);
+    int sendBytes = send(socketFd, buf, sizeof(msgHeader) + errorStr.length() + 1, 0);
 
     delete[] buf;
     return sendBytes;
@@ -1513,6 +1517,7 @@ int main(int argc, char **argv)
                                 subscribeTo(lSubscribe.typeCapteur, lSubscribe.bufferSize, 0, true, nodeRos, clients[lHeader.clientId]);
                             }
                             else{
+                                global_lasterror = "Subscribe received without any parameters struct. Sensor will not be subscribed.";
                                 ROS_WARN("Subscribe received a paramsSize of 0. Invalid!");
                             }
                         }
@@ -1521,7 +1526,27 @@ int main(int argc, char **argv)
                             memcpy(bufferSubscribe, msg+sizeof(msgSubscribe), lSubscribe.paramsSize);
                             subscribeTo(lSubscribe.typeCapteur, lSubscribe.bufferSize, bufferSubscribe, lSubscribe.silentSubscribe == 1, nodeRos, clients[lHeader.clientId]);
                             delete[] bufferSubscribe;
+                        }                        
+
+                        if(global_lasterror != ""){
+                            sendError(i, MSGID_SUBSCRIBE_ACK, 1, global_lasterror);
+                            global_lasterror = "";
+                            global_lasterror_issued_by = "";
                         }
+                        else{
+                            lAnswer = new char[sizeof(msgHeader)];
+                            lAnswerHeader.type = MSGID_SUBSCRIBE_ACK;
+                            lAnswerHeader.error = 0;
+                            lAnswerHeader.size = 0;
+                            lAnswerHeader.compressSize = 0;
+                            lAnswerHeader.uncompressSize = 0;
+                            lAnswerHeader.compressionType = MSGID_HEADER_NOCOMPRESSION;
+                            lAnswerHeader.packetTimestamp = 0.0;
+                            memcpy(lAnswer, &lAnswerHeader, sizeof(msgHeader));
+                            send(i, lAnswer, sizeof(msgHeader), 0);
+                            delete[] lAnswer;
+                        }
+
                         break;
 
                     case MSGID_UNSUBSCRIBE:

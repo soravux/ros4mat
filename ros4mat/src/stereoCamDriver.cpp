@@ -137,10 +137,10 @@ bool newConfStereo(ros4mat::S_StereoCam::Request& request, ros4mat::S_StereoCam:
 
 		ret = system("sleep 4");		// On attend que la camera soit configuree
 		ssRequest.str("");
-		ssRequest << "uvcdynctrl --device=" << request.device_L.substr(5) << " -s \"Exposure (Absolute)\" 400";
+		ssRequest << "uvcdynctrl --device=" << request.device_L.substr(5) << " -s \"Exposure (Absolute)\"" << request.exposure_L;
 		ret = system(ssRequest.str().c_str()); // Bon ok c'est un peu arbitraire. Plus le nombre est petit, plus c'est clair
 		ssRequest.str("");
-		ssRequest << "uvcdynctrl --device=" << request.device_R.substr(5) << " -s \"Exposure (Absolute)\" 400";
+		ssRequest << "uvcdynctrl --device=" << request.device_R.substr(5) << " -s \"Exposure (Absolute)\"" << request.exposure_R;
 		ret = system(ssRequest.str().c_str()); // Bon ok c'est un peu arbitraire. Plus le nombre est petit, plus c'est clair
 
 		compression = request.compressionRatio;

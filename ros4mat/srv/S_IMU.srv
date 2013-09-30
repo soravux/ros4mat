@@ -4,3 +4,4 @@ uint16 imuFreqPoll
 uint32 imuBufferSize
 ---
 int8 ret
+string errorDesc

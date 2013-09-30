@@ -12,3 +12,4 @@ bool closeAfterComm
 int8[] receiveBuffer
 uint32 receiveBufferLength
 bool timeoutTrigged
+string errorDesc
