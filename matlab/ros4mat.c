@@ -680,6 +680,13 @@ void ros4mat_subscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[
         msg,
         sizeof(msgSubscribe) + lParamSize
     );
+
+    /* Step 5: Wait for the acknowledge */
+    receive_message_header((void**)&msg);
+
+    if (((msgHeader*)msg)->type != MSGID_SUBSCRIBE_ACK) {
+        mexErrMsgTxt("Incompatible ros4mat answer.");
+    }
 }
 
 
