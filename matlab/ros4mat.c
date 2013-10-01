@@ -230,25 +230,25 @@ int receive_message_header(void **msg)
     FD_SET(*main_socket, &read_fds);
     while (recvBytes < sizeof(msgHeader))
     {
-        timeout.tv_sec = 30;
+        /*timeout.tv_sec = 30;
         timeout.tv_usec = 0;
         i = select(*main_socket + 1, &read_fds, NULL, NULL, &timeout);
         if (i < 0) {
             mexErrMsgTxt("Network error.");
         } else if (i == 0) {
             mexErrMsgTxt("Network timeout error.");
-        }
+        }*/
 
         /* Reception des donnes du capteur */
-        recvBytes += recv(*main_socket, *msg + recvBytes, sizeof(msgHeader), 0);
+        recvBytes += recv(*main_socket, *msg + recvBytes, sizeof(msgHeader) - recvBytes, 0);
     }
 
     /* Remote error handling */
-    if (((msgHeader*)msg)->error != 0) {
-        char *errMsg = mxMalloc(((msgHeader*)msg)->compressSize + 1);
-        errMsg[((msgHeader*)msg)->compressSize] = 0; /* Set string termination */
-        receive_message(errMsg, ((msgHeader*)msg)->compressSize);
-        mexPrintf("An error was reported by the robot:\n%s\n", errMsg);
+    if (((msgHeader*)*msg)->error != 0) {
+        char *errMsg = mxMalloc(((msgHeader*)*msg)->compressSize + 1);
+        errMsg[((msgHeader*)*msg)->compressSize] = 0; /* Set string termination */
+        receive_message(errMsg, ((msgHeader*)*msg)->compressSize);
+        mexPrintf("An error [%d] was reported by the robot:\n%s\n",((msgHeader*)*msg)->error, errMsg);
         mexErrMsgTxt("Cannot process information because of previous error.");
     }
 }
@@ -611,12 +611,12 @@ void ros4mat_subscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[
                     lParameters.stereocam.compression = (unsigned char) mxGetScalar(prhs[7]);
                 }
                 if (nrhs > 8) {
-                    lParameters.stereocam.exposureLeft = (unsigned char) mxGetScalar(prhs[8]);
+                    lParameters.stereocam.exposureLeft = (unsigned short) mxGetScalar(prhs[8]);
                 } else {
                     lParameters.stereocam.exposureLeft = 300;
                 }
                 if (nrhs > 9) {
-                    lParameters.stereocam.exposureRight = (unsigned char) mxGetScalar(prhs[9]);
+                    lParameters.stereocam.exposureRight = (unsigned short) mxGetScalar(prhs[9]);
                 } else {
                     lParameters.stereocam.exposureRight = 300;
                 }
@@ -630,7 +630,7 @@ void ros4mat_subscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[
                     lParameters.cam.compression = MSGID_WEBCAM_NOCOMPRESSION;
                 }
                 if (nrhs > 7) {
-                    lParameters.cam.exposure = (unsigned char) mxGetScalar(prhs[7]);
+                    lParameters.cam.exposure = (unsigned short) mxGetScalar(prhs[7]);
                 } else {
                     lParameters.cam.exposure = 300;
                 }
@@ -682,6 +682,7 @@ void ros4mat_subscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[
             sizeof(msgSubscribe)
         );
     } /* end not silent subscription */
+    
     memcpy(
         msg + sizeof(msgSubscribe),
         &lParameters,
@@ -695,6 +696,7 @@ void ros4mat_subscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[
         msg,
         sizeof(msgSubscribe) + lParamSize
     );
+    
 
     /* Step 5: Wait for the acknowledge */
     receive_message_header((void**)&msg);
