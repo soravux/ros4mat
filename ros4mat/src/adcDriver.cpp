@@ -410,17 +410,20 @@ bool newConfReceived(ros4mat::S_ADC::Request& request, ros4mat::S_ADC::Response&
 		
 		if(nbrChan == 0){
 			ROS_ERROR("Aucun canal de l'ADC actif!");
+			response.errorDesc = "No ADC channel was set active!";
 			response.ret = -1;
 			return false;
 		}
 		
 		if(request.adcFreqPoll == 0){
 			ROS_ERROR("Frequence de polling de 0!");
+			response.errorDesc = "Polling frequency set to 0 Hz!";
 			response.ret = -1;
 			return false;
 		}
 		if(request.adcFreqAcq == 0){
 			ROS_ERROR(" Frequence d'acquisition de 0!");
+			response.errorDesc = "Sample frequency set to 0 Hz!";
 			response.ret = -1;
 			return false;
 		}
