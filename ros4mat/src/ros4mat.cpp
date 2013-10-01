@@ -131,12 +131,11 @@ struct matlabClient
     char                                                                        compression;
     std::map<unsigned int, std::pair<ros::Subscriber, std::queue<void *> > >    subscribers;    // subscribers, buffered data
     std::map<unsigned int, uint32_t>                                            buffersInfo;    // Allocated size
+    std::string                                                                 lasterror;
+    std::string                                                                 lasterror_issued_by;
 };
 
 std::map<uint32_t, matlabClient> clients;    // uint = unique client id
-
-std::string global_lasterror_issued_by = "";    // Name of the function which raised the last error
-std::string global_lasterror = "";              // Used to keep track of the last error between functions and callbacks
 
 void dataAdcReceived(const ros4mat::M_ADC::ConstPtr &msg)
 {
@@ -1517,7 +1516,7 @@ int main(int argc, char **argv)
                                 subscribeTo(lSubscribe.typeCapteur, lSubscribe.bufferSize, 0, true, nodeRos, clients[lHeader.clientId]);
                             }
                             else{
-                                global_lasterror = "Subscribe received without any parameters struct. Sensor will not be subscribed.";
+                                clients[lHeader.clientId].lasterror = "Subscribe received without any parameters struct. Sensor will not be subscribed.";
                                 ROS_WARN("Subscribe received a paramsSize of 0. Invalid!");
                             }
                         }
@@ -1528,10 +1527,10 @@ int main(int argc, char **argv)
                             delete[] bufferSubscribe;
                         }                        
 
-                        if(global_lasterror != ""){
-                            sendError(i, MSGID_SUBSCRIBE_ACK, 1, global_lasterror);
-                            global_lasterror = "";
-                            global_lasterror_issued_by = "";
+                        if(clients[lHeader.clientId].lasterror != ""){
+                            sendError(i, MSGID_SUBSCRIBE_ACK, 1, clients[lHeader.clientId].lasterror);
+                            clients[lHeader.clientId].lasterror = "";
+                            clients[lHeader.clientId].lasterror_issued_by = "";
                         }
                         else{
                             lAnswer = new char[sizeof(msgHeader)];
