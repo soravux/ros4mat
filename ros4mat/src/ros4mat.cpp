@@ -1640,7 +1640,7 @@ int main(int argc, char **argv)
                             else{
                                 std::map<uint32_t,matlabClient>::reverse_iterator rend;
                                 rend = clients.rbegin();
-                                lAnswerHeader.clientId = rend->first;
+                                lAnswerHeader.clientId = rend->first + 1;
                             }                           
                             clients[lAnswerHeader.clientId] = matlabClient();
                         }
@@ -1702,6 +1702,7 @@ int main(int argc, char **argv)
                             lAnswerHeader.size = 0;
                             lAnswerHeader.compressSize = 0;
                             lAnswerHeader.uncompressSize = 0;
+                            lAnswerHeader.clientId = lHeader.clientId; 
                             lAnswerHeader.compressionType = MSGID_HEADER_NOCOMPRESSION;
                             lAnswerHeader.packetTimestamp = 0.0;
                             memcpy(lAnswer, &lAnswerHeader, sizeof(msgHeader));
@@ -1741,6 +1742,7 @@ int main(int argc, char **argv)
                         lAnswerHeader.error = 0;
                         lAnswerHeader.size = 1;
                         lAnswerHeader.packetTimestamp = 0.0;
+                        lAnswerHeader.clientId = lHeader.clientId; 
                         lAnswerHeader.compressSize = sizeof(msgSerialAns) + lRetourSize;
                         lAnswerHeader.uncompressSize = sizeof(msgSerialAns) + lRetourSize;
                         lSerialAns.dataLength = lRetourSize;
@@ -1771,6 +1773,7 @@ int main(int argc, char **argv)
                             lAnswerHeader.type = MSGID_WEBCAM;
                             lAnswerHeader.error = 0;
                             lAnswerHeader.packetTimestamp = ros::Time::now().toSec();
+                            lAnswerHeader.clientId = lHeader.clientId; 
 
                             nbrImgSend = clients[lHeader.clientId].subscribers[MSGID_WEBCAM].second.size();
                             lAnswerHeader.size = nbrImgSend;
@@ -1818,6 +1821,7 @@ int main(int argc, char **argv)
                             lAnswerHeader.type = MSGID_WEBCAM_STEREO;
                             lAnswerHeader.error = 0;
                             lAnswerHeader.packetTimestamp = ros::Time::now().toSec();
+                            lAnswerHeader.clientId = lHeader.clientId;
 
                             nbrImgSend = clients[lHeader.clientId].subscribers[MSGID_WEBCAM_STEREO].second.size();
                             lAnswerHeader.size = nbrImgSend;
@@ -1884,6 +1888,7 @@ int main(int argc, char **argv)
                         {
                             lAnswerHeader.type = MSGID_KINECT;lAnswerHeader.error = 0;
                             lAnswerHeader.packetTimestamp = ros::Time::now().toSec();
+                            lAnswerHeader.clientId = lHeader.clientId; 
 
                             nbrImgSend = clients[lHeader.clientId].subscribers[MSGID_KINECT].second.size();
                             lAnswerHeader.size = nbrImgSend;
@@ -1954,6 +1959,7 @@ int main(int argc, char **argv)
                             lAnswerHeader.type = MSGID_HOKUYO;
                             lAnswerHeader.error = 0;
                             lAnswerHeader.packetTimestamp = ros::Time::now().toSec();
+                            lAnswerHeader.clientId = lHeader.clientId; 
                             
                             /* Sending protocol: We send an msgHeader containing the number of depth scans 
                                  * contained in the size variable.
@@ -2015,6 +2021,7 @@ int main(int argc, char **argv)
                         lAnswerHeader.size = clients[lHeader.clientId].subscribers[lHeader.type].second.size();
                         lAnswerHeader.error = 0;
                         lAnswerHeader.packetTimestamp = ros::Time::now().toSec();
+                        lAnswerHeader.clientId = lHeader.clientId; 
 
                         lAnswer = new char[lAnswerHeader.size * sizeof(msgGps)];
                         for(unsigned int k = 0; k < lAnswerHeader.size; k++)
@@ -2044,6 +2051,7 @@ int main(int argc, char **argv)
                         lAnswerHeader.size = clients[lHeader.clientId].subscribers[lHeader.type].second.size();
                         lAnswerHeader.error = 0;
                         lAnswerHeader.packetTimestamp = ros::Time::now().toSec();
+                        lAnswerHeader.clientId = lHeader.clientId; 
 
                         lAnswer = new char[lAnswerHeader.size * sizeof(msgComputer)];
                         for(unsigned int k = 0; k < lAnswerHeader.size; k++)
@@ -2074,6 +2082,7 @@ int main(int argc, char **argv)
                         lAnswerHeader.size = clients[lHeader.clientId].subscribers[lHeader.type].second.size();
                         lAnswerHeader.packetTimestamp = ros::Time::now().toSec();
                         lAnswerHeader.error = 0;
+                        lAnswerHeader.clientId = lHeader.clientId; 
 
                         lAnswer = new char[lAnswerHeader.size * sizeof(msgAdc)];
                         for(unsigned int k = 0; k < lAnswerHeader.size; k++)
@@ -2103,6 +2112,7 @@ int main(int argc, char **argv)
                         lAnswerHeader.size = clients[lHeader.clientId].subscribers[lHeader.type].second.size();
                         lAnswerHeader.packetTimestamp = ros::Time::now().toSec();
                         lAnswerHeader.error = 0;
+                        lAnswerHeader.clientId = lHeader.clientId; 
 
                         lAnswer = new char[lAnswerHeader.size * sizeof(msgImu)];
                         for(unsigned int k = 0; k < lAnswerHeader.size; k++)
