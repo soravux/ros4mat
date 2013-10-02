@@ -76,7 +76,7 @@ void dataCameraSync(const sensor_msgs::Image::ConstPtr& imageL, const sensor_msg
 		}
 
 
-		unsigned int outsize = msg.width*msg.height*msg.channels;
+		int outsize = msg.width*msg.height*msg.channels;
 		struct jpge::params paramsCompression = jpge::params();
 		paramsCompression.m_quality = (int)compression;
 
@@ -84,7 +84,7 @@ void dataCameraSync(const sensor_msgs::Image::ConstPtr& imageL, const sensor_msg
 		unsigned char *bufjpeg = new unsigned char[msg.width*msg.height*msg.channels];
 		bool ok = jpge::compress_image_to_jpeg_file_in_memory(bufjpeg, outsize, msg.width, msg.height, msg.channels, dataImg_L, paramsCompression);
 
-		for(unsigned int i=0; i < outsize; i++)
+		for(int i=0; i < outsize; i++)
 			msg.image_left.push_back(bufjpeg[i]);
 
 		delete[] bufjpeg;
@@ -92,7 +92,7 @@ void dataCameraSync(const sensor_msgs::Image::ConstPtr& imageL, const sensor_msg
 		bufjpeg = new unsigned char[msg.width*msg.height*msg.channels];
 		ok = jpge::compress_image_to_jpeg_file_in_memory(bufjpeg, outsize, msg.width, msg.height, msg.channels, dataImg_R, paramsCompression);
 
-		for(unsigned int i=0; i < outsize; i++)
+		for(int i=0; i < outsize; i++)
 			msg.image_right.push_back(bufjpeg[i]);
 
 		delete[] bufjpeg;

@@ -1675,7 +1675,7 @@ int main(int argc, char **argv)
                         ROS_DEBUG("Received Subscribe for %X", lSubscribe.typeCapteur);
 
                         if(lSubscribe.paramsSize == 0){
-                            if(lSubscribe.silentSubscribe == 1){
+                            if(lSubscribe.silentSubscribe != 0){
                                 subscribeTo(lSubscribe.typeCapteur, lSubscribe.bufferSize, 0, true, nodeRos, clients[lHeader.clientId]);
                             }
                             else{
