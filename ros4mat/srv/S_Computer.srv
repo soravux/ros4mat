@@ -1,0 +1,5 @@
+bool subscribe
+uint16 freqAcq
+uint32 bufferSize
+---
+int8 ret
