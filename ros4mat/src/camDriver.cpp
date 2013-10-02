@@ -98,6 +98,23 @@ bool newConfReceived(ros4mat::S_Cam::Request& request, ros4mat::S_Cam::Response&
             response.ret = 0;
             return true;
         }
+
+        // Check if /dev/video* is available
+        ssRequest << "ls /dev | grep video" << request.device << " | wc -l";
+        if(!(console = popen(ssRequest.str().c_str(), "r"))){
+			ROS_WARN("Impossible de verifier si le device existe!");
+		}
+		
+		fgets(bufR, sizeof(bufR), console);
+		if(bufR[0] == '0'){
+            ROS_INFO("Device non present");
+            response.ret = -1;
+            ssRequest.str("");
+            ssRequest << "Device /dev/video" << request.device << " is not present! Check USB connection and camera ID.";
+            response.errorDesc = ssRequest.str();
+            return false;
+		}
+
 		
 		if(!(console = popen("rosnode list | grep /uvc_camera | wc -l", "r"))){
 				ROS_WARN("Impossible de verifier si la camera est deja en fonction...");
@@ -114,6 +131,7 @@ bool newConfReceived(ros4mat::S_Cam::Request& request, ros4mat::S_Cam::Response&
 			camPublisher = n->advertise<ros4mat::M_Cam>("D_Cam/data", request.camBufferSize);
 		}
 
+		ssRequest.str("");
 		ssRequest << "rosrun uvc_camera camera_node _width:=" << request.width << " _height:=" << request.height << " _device:=" << request.device << " _fps:=" << (unsigned int)request.fps << " &";
 		ROS_INFO("Lancement de la commande : %s", ssRequest.str().c_str());
 		ret = system(ssRequest.str().c_str());
