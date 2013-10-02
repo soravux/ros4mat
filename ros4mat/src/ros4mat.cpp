@@ -833,7 +833,7 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
                     lParamsSetCam.response.ret
                 );
                 in_client.lasterror = "The Camera subscription did not execute properly!\n";
-                in_client.lasterror += lParamsSetCam.response.errorDesc;
+                in_client.lasterror = lParamsSetCam.response.errorDesc;
                 in_client.lasterror_issued_by = "subscribeTo";
                 return -1;
             }
