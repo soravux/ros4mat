@@ -100,16 +100,10 @@ bool newConfReceived(ros4mat::S_Cam::Request& request, ros4mat::S_Cam::Response&
         }
 
         // Check if /dev/video* is available
-        ssRequest << "ls /dev | grep video" << request.device << " | wc -l";
-        if(!(console = popen(ssRequest.str().c_str(), "r"))){
-			ROS_WARN("Impossible de verifier si le device existe!");
-		}
-		
-		fgets(bufR, sizeof(bufR), console);
-		if(bufR[0] == '0'){
+		if(access(request.device.c_str(), F_OK) != 0){
             response.ret = -1;
             ssRequest.str("");
-            ssRequest << "Device /dev/video" << request.device << " is not present! Check USB connection and camera ID.";
+            ssRequest << "Device " << request.device << " is not present! Check USB connection and camera ID.";
             ROS_INFO(ssRequest.str().c_str());
             response.errorDesc = ssRequest.str();
             return false;

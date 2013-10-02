@@ -122,13 +122,7 @@ bool newConfStereo(ros4mat::S_StereoCam::Request& request, ros4mat::S_StereoCam:
         }
 
         // Check if /dev/video* is available
-        ssRequest << "ls /dev | grep video" << request.device_L << " | wc -l";
-        if(!(console = popen(ssRequest.str().c_str(), "r"))){
-			ROS_WARN("Impossible de verifier si le device gauche existe!");
-		}
-		
-		fgets(bufR, sizeof(bufR), console);
-		if(bufR[0] == '0'){
+		if(access(request.device_L.c_str(), F_OK) != 0){
             ROS_INFO("Device gauche non present");
             response.ret = -1;
             ssRequest.str("");
@@ -137,14 +131,7 @@ bool newConfStereo(ros4mat::S_StereoCam::Request& request, ros4mat::S_StereoCam:
             return false;
 		}
 
-		ssRequest.str("");
-		ssRequest << "ls /dev | grep video" << request.device_R << " | wc -l";
-        if(!(console = popen(ssRequest.str().c_str(), "r"))){
-			ROS_WARN("Impossible de verifier si le device droit existe!");
-		}
-		
-		fgets(bufR, sizeof(bufR), console);
-		if(bufR[0] == '0'){
+		if(access(request.device_R.c_str(), F_OK) != 0){
             ROS_INFO("Device droit non present");
             response.ret = -1;
             ssRequest.str("");
