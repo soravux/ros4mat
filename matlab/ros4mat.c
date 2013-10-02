@@ -17,10 +17,10 @@
 
 /*
  * To compile on Windows, on a MATLAB shell:
- * mex ros4mat.c ../thirdparty/easyzlib.c ../thirdparty/picojpeg.c wsock32.lib
+ * mex ros4mat.c ../thirdparty/easyzlib.c wsock32.lib
  *
  * To compile on Linux, on a MATLAB shell:
- * mex ros4mat.c ../thirdparty/easyzlib.c ../thirdparty/picojpeg.c
+ * mex ros4mat.c ../thirdparty/easyzlib.c
 */
 #include <stdlib.h>
 #include <sys/types.h>
@@ -84,9 +84,7 @@
 #include "mex.h"
 
 #include "../exchangeStructs.h"
-#include "../thirdparty/easyzlib.h"
-#include "../thirdparty/picojpeg.h"
-
+#include "../thirdparty/easyzlib.c"
 #include "../thirdparty/nanojpeg.c"
 
 #define REMOTE_SERVER_PORT    1500
@@ -421,7 +419,7 @@ union subscriptionParameters
 
 /* This is the most NON-thread-safe code you have ever seen */
 
-void decodeJPEG2(char *inStream, uint32_t dataSize, uint32_t *outImage){
+void decodeJPEG(char *inStream, uint32_t dataSize, uint32_t *outImage){
     unsigned char* out = (unsigned char*)outImage;
 
     njInit();
@@ -430,96 +428,6 @@ void decodeJPEG2(char *inStream, uint32_t dataSize, uint32_t *outImage){
         return;
     }
     memcpy(out, njGetImage(), njGetImageSize());
-}
-
-
-char* jpeg_datastream;
-int jpeg_size = 0;
-int jpeg_pos = 0;
-
-int min ( int a, int b ) { return a < b ? a : b; }
-
-unsigned char pjpeg_need_bytes_callback(unsigned char* pBuf, unsigned char buf_size, unsigned char *pBytes_actually_read, void *pCallback_data)
-{
-    uint32_t n = min((uint32_t)jpeg_size - jpeg_pos, (uint32_t)buf_size);
-    memcpy(pBuf, jpeg_datastream + jpeg_pos, n);
-    *pBytes_actually_read = (unsigned char)n;
-    jpeg_pos += n;
-    return 0;
-}
-
-
-void decodeJPEG(char *inStream, uint32_t dataSize, uint8_t *outImage)
-{
-    pjpeg_image_info_t imageInfo;
-    jpeg_datastream = inStream;
-    jpeg_size = dataSize;
-    jpeg_pos = 0;
-    int status = pjpeg_decode_init(&imageInfo, pjpeg_need_bytes_callback, NULL, 0);
-    int x, y, bx, by;
-    int mcu_x = 0;
-    int mcu_y = 0;
-
-    for ( ; ; ) {
-        status = pjpeg_decode_mcu();
-
-        /* Handle case when its done. */
-        if (status) {
-            if (status != PJPG_NO_MORE_BLOCKS) {
-                mexErrMsgTxt("Error while decoding JPEG.");
-                return;
-            }
-            break;
-        }
-        if (mcu_y >= imageInfo.m_MCUSPerCol) {
-            mexErrMsgTxt("Error while decoding JPEG.");
-            return;
-        }
-
-        /* Copy MCU's pixel blocks into the destination bitmap. */
-        for (y = 0; y < imageInfo.m_MCUHeight; y += 8) {
-            const int by_limit = min(8, imageInfo.m_height - (mcu_y * imageInfo.m_MCUHeight + y));
-            for (x = 0; x < imageInfo.m_MCUWidth; x += 8) {
-
-                unsigned int src_ofs = (x * 8U) + (y * 16U);
-                const unsigned char *pSrcR = imageInfo.m_pMCUBufR + src_ofs;
-                const unsigned char *pSrcG = imageInfo.m_pMCUBufG + src_ofs;
-                const unsigned char *pSrcB = imageInfo.m_pMCUBufB + src_ofs;
-
-                const int bx_limit = min(8, imageInfo.m_width - (mcu_x * imageInfo.m_MCUWidth + x));
-
-                if (imageInfo.m_scanType == PJPG_GRAYSCALE) {
-                    for (by = 0; by < by_limit; by++) {
-                        for (bx = 0; bx < bx_limit; bx++) {
-                            uint8_t color = ((*pSrcR++) << 16);
-                            outImage[mcu_x*imageInfo.m_MCUWidth + x + bx
-                                     + mcu_y*imageInfo.m_MCUHeight + y + by] = color;
-                        }
-                        pSrcR += (8 - bx_limit);
-                    }
-                } else {
-                    for (by = 0; by < by_limit; by++) {
-                        for (bx = 0; bx < bx_limit; bx++) {
-                            #define STRIDE_JPEG  ((mcu_x * imageInfo.m_MCUWidth + x + bx + (mcu_y * imageInfo.m_MCUHeight + y + by) * imageInfo.m_width) * imageInfo.m_comps)
-                            outImage[STRIDE_JPEG + 0] = *pSrcR++;
-                            outImage[STRIDE_JPEG + 1] = *pSrcG++;
-                            outImage[STRIDE_JPEG + 2] = *pSrcB++;
-                        }
-
-                        pSrcR += (8 - bx_limit);
-                        pSrcG += (8 - bx_limit);
-                        pSrcB += (8 - bx_limit);
-                    }
-                }
-            }
-        }
-
-        mcu_x++;
-        if (mcu_x == imageInfo.m_MCUSPerRow) {
-            mcu_x = 0;
-            mcu_y++;
-        }
-    }
 }
 
 /*******************************************************************************
@@ -1041,10 +949,7 @@ void format_camera_image(msgCam *lCam, char *msg, unsigned int i, unsigned char 
         default:
             /* Decompress the image first and set the pixel source pointer to it */
             inPixelSource = (char *) mxMalloc(sizeImg * sizeof(char));
-/*
-            decodeJPEG2(msg, lCam->sizeData, (uint32_t*)inPixelSource);
-*/
-            decodeJPEG(msg, lCam->sizeData, (uint8_t*)inPixelSource);
+            decodeJPEG(msg, lCam->sizeData, (uint32_t*)inPixelSource);
     }
 
     /* Matlab formatting */
@@ -1174,9 +1079,9 @@ void ros4mat_camera_stereo(int nlhs, mxArray *plhs[], int nrhs, const mxArray *p
                 /* Decompress the image first and set the pixel source pointer to it */
                 inPixelSource_l = (char *) mxMalloc(sizeImg);
                 inPixelSource_r = (char *) mxMalloc(sizeImg);
-                decodeJPEG(msg + msg_pos, lCam_l.sizeData, (uint8_t*)inPixelSource_l);
+                decodeJPEG(msg + msg_pos, lCam_l.sizeData, (uint32_t*)inPixelSource_l);
                 msg_pos += lCam_l.sizeData;
-                decodeJPEG(msg + msg_pos, lCam_r.sizeData, (uint8_t*)inPixelSource_r);
+                decodeJPEG(msg + msg_pos, lCam_r.sizeData, (uint32_t*)inPixelSource_r);
                 msg_pos += lCam_r.sizeData;
         }
 
