@@ -612,6 +612,16 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
     switch(typeCapteur)
     {
     case MSGID_ADC:
+        if(!(console = popen("rosservice list | grep /D_ADC/params | wc -l", "r"))){
+            ROS_WARN("Impossible de verifier si le node ADC est lance!");
+        }
+        fgets(bufR, sizeof(bufR), console);
+        if(bufR[0] == '0'){
+            ROS_ERROR("Node ADC not started!");
+            in_client.lasterror = "The ADC node is not started or crashed (no service at /D_ADC/params). Impossible to subscribe";
+            in_client.lasterror_issued_by = "subscribeTo";
+            return -1;
+        }
         if(subOnly)
         {   
             for(unsigned int i = 0; i < 8; i++)
@@ -668,7 +678,7 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
         fgets(bufR, sizeof(bufR), console);
         if(bufR[0] == '0'){
             ROS_ERROR("Node ADC not started!");
-            in_client.lasterror = "The ADC node is not started or crashed (topic not present)! Impossible to subscribe to its topic.";
+            in_client.lasterror = "The ADC topic is not present! Impossible to subscribe to /D_ADC/data";
             in_client.lasterror_issued_by = "subscribeTo";
             return -1;
         }
@@ -676,6 +686,17 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
         break;
 
     case MSGID_IMU:
+        if(!(console = popen("rosservice list | grep /D_IMU/params | wc -l", "r"))){
+            ROS_WARN("Impossible de verifier si le node IMU est lance!");
+        }
+        fgets(bufR, sizeof(bufR), console);
+        if(bufR[0] == '0'){
+            ROS_ERROR("Node IMU not started!");
+            in_client.lasterror = "The IMU node is not started or crashed (no service at /D_IMU/params). Impossible to subscribe";
+            in_client.lasterror_issued_by = "subscribeTo";
+            return -1;
+        }
+
         if(subOnly)
         {
             lParamsSetImu.request.imuFreqAcq = 0;
@@ -720,7 +741,7 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
         fgets(bufR, sizeof(bufR), console);
         if(bufR[0] == '0'){
             ROS_ERROR("Node IMU not started!");
-            in_client.lasterror = "The IMU node is not started or crashed (topic not present)! Impossible to subscribe to its topic.";
+            in_client.lasterror = "The IMU topic is not present! Impossible to subscribe to /D_IMU/data";
             in_client.lasterror_issued_by = "subscribeTo";
             return -1;
         }
@@ -756,6 +777,16 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
         break;
 
     case MSGID_WEBCAM:
+        if(!(console = popen("rosservice list | grep /D_Cam/params | wc -l", "r"))){
+            ROS_WARN("Impossible de verifier si le node Camera est lance!");
+        }
+        fgets(bufR, sizeof(bufR), console);
+        if(bufR[0] == '0'){
+            ROS_ERROR("Node Camera not started!");
+            in_client.lasterror = "The camera node is not started or crashed (no service at /D_Cam/params). Impossible to subscribe";
+            in_client.lasterror_issued_by = "subscribeTo";
+            return -1;
+        }
         if(subOnly)
         {
             lParamsSetCam.request.subscribe = true;
@@ -811,7 +842,7 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
         fgets(bufR, sizeof(bufR), console);
         if(bufR[0] == '0'){
             ROS_ERROR("Node Camera not started!");
-            in_client.lasterror = "The Camera node is not started or crashed (topic not present)! Impossible to subscribe to its topic.";
+            in_client.lasterror = "The camera topic is not present! Impossible to subscribe to /D_Cam/data";
             in_client.lasterror_issued_by = "subscribeTo";
             return -1;
         }
@@ -820,6 +851,17 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
         break;
 
     case MSGID_WEBCAM_STEREO:
+        if(!(console = popen("rosservice list | grep /D_CamStereo/params | wc -l", "r"))){
+            ROS_WARN("Impossible de verifier si le node StereoCam est lance!");
+        }
+        fgets(bufR, sizeof(bufR), console);
+        if(bufR[0] == '0'){
+            ROS_ERROR("Node StereoCam not started!");
+            in_client.lasterror = "The Stereo Camera node is not started or crashed (no service at /D_CamStereo/params). Impossible to subscribe";
+            in_client.lasterror_issued_by = "subscribeTo";
+            return -1;
+        }
+
         if(subOnly)
         {
             lParamsSetStereoCam.request.subscribe = true;
@@ -879,7 +921,7 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
         fgets(bufR, sizeof(bufR), console);
         if(bufR[0] == '0'){
             ROS_ERROR("Node StereoCamera not started!");
-            in_client.lasterror = "The Stereo Camera node is not started or crashed (topic not present)! Impossible to subscribe to its topic.";
+            in_client.lasterror = "The Stereo Camera topic is not present! Impossible to subscribe to /D_CamStereo/data";
             in_client.lasterror_issued_by = "subscribeTo";
             return -1;
         }
@@ -889,6 +931,17 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
         break;
 
     case MSGID_KINECT:
+        if(!(console = popen("rosservice list | grep /D_Kinect/params/params | wc -l", "r"))){
+            ROS_WARN("Impossible de verifier si le node Kinect est lance!");
+        }
+        fgets(bufR, sizeof(bufR), console);
+        if(bufR[0] == '0'){
+            ROS_ERROR("Node Kinect not started!");
+            in_client.lasterror = "The Kinect node is not started or crashed (no service at /D_Kinect/params/params). Impossible to subscribe";
+            in_client.lasterror_issued_by = "subscribeTo";
+            return -1;
+        }
+
         if(subOnly)
         {
             lParamsSetKinect.request.subscribe = true;
@@ -939,7 +992,7 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
         fgets(bufR, sizeof(bufR), console);
         if(bufR[0] == '0'){
             ROS_ERROR("Node Kinect not started!");
-            in_client.lasterror = "The Kinect node is not started or crashed (topic not present)! Impossible to subscribe to its topic.";
+            in_client.lasterror = "The Kinect topic is not present! Impossible to subscribe to /D_Kinect/data";
             in_client.lasterror_issued_by = "subscribeTo";
             return -1;
         }
@@ -978,7 +1031,7 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
             }
         }
 
-        sub = nodeRos.subscribe("D_ComputerInfo/data", 2 * SOCKET_SEND_TIMEOUT_SEC * 10, dataComputerReceived);
+        sub = nodeRos.subscribe("/D_ComputerInfo/data", 2 * SOCKET_SEND_TIMEOUT_SEC * 10, dataComputerReceived);
         break;
 
     default:
