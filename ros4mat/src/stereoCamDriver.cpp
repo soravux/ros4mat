@@ -121,6 +121,38 @@ bool newConfStereo(ros4mat::S_StereoCam::Request& request, ros4mat::S_StereoCam:
             return true;
         }
 
+        // Check if /dev/video* is available
+        ssRequest << "ls /dev | grep video" << request.device_L << " | wc -l";
+        if(!(console = popen(ssRequest.str().c_str(), "r"))){
+			ROS_WARN("Impossible de verifier si le device gauche existe!");
+		}
+		
+		fgets(bufR, sizeof(bufR), console);
+		if(bufR[0] == '0'){
+            ROS_INFO("Device gauche non present");
+            response.ret = -1;
+            ssRequest.str("");
+            ssRequest << "Left camera /dev/video" << request.device_L << " is not present! Check USB connection and camera ID.";
+            response.errorDesc = ssRequest.str();
+            return false;
+		}
+
+		ssRequest.str("");
+		ssRequest << "ls /dev | grep video" << request.device_R << " | wc -l";
+        if(!(console = popen(ssRequest.str().c_str(), "r"))){
+			ROS_WARN("Impossible de verifier si le device droit existe!");
+		}
+		
+		fgets(bufR, sizeof(bufR), console);
+		if(bufR[0] == '0'){
+            ROS_INFO("Device droit non present");
+            response.ret = -1;
+            ssRequest.str("");
+            ssRequest << "Right camera /dev/video" << request.device_R << " is not present! Check USB connection and camera ID.";
+            response.errorDesc = ssRequest.str();
+            return false;
+		}
+
         if(!(console = popen("rosnode list | grep uvc_camera_stereo | wc -l", "r"))){
 				ROS_WARN("Impossible de verifier si la paire stereo est deja en fonction...");
 			}
