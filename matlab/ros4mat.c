@@ -566,6 +566,7 @@ void ros4mat_subscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[
     /* Step 2: Register parameters */
     if (nrhs < 2) {
         /* Silent subscription was requested. */
+        mexPrintf("Will execute a silent subscription.\n");
         lSubscribeMessage.silentSubscribe = 1;
     } else {
         if (nrhs > 3) {
@@ -578,7 +579,11 @@ void ros4mat_subscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[
         /* Parse parameters for each sensor */
         switch (lSubscribeMessage.typeCapteur) {
             case MSGID_ADC:
-                lParameters.adc.channels = (unsigned char) mxGetScalar(prhs[2]);
+                if (nrhs > 2) {
+                    lParameters.adc.channels = (unsigned char) mxGetScalar(prhs[2]);
+                } else {
+                    lParameters.adc.channels = 0xFF;
+                }
                 if (!lParamSize) { lParamSize = sizeof(paramsAdc); }
             case MSGID_GPS:
             case MSGID_IMU:
@@ -675,13 +680,14 @@ void ros4mat_subscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[
         }
         lSubscribeMessage.paramsSize = lParamSize;
         /* Step 3: Build a message composed of [ msgSubscribe |  parameters ] */
-        msg = mxMalloc( sizeof(msgSubscribe) + lParamSize);
-        memcpy(
-            msg,
-            &lSubscribeMessage,
-            sizeof(msgSubscribe)
-        );
     } /* end not silent subscription */
+
+    msg = mxMalloc( sizeof(msgSubscribe) + lParamSize);
+    memcpy(
+        msg,
+        &lSubscribeMessage,
+        sizeof(msgSubscribe)
+    );
     
     memcpy(
         msg + sizeof(msgSubscribe),
