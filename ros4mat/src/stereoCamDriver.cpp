@@ -76,7 +76,7 @@ void dataCameraSync(const sensor_msgs::Image::ConstPtr& imageL, const sensor_msg
 		}
 
 
-		int outsize = msg.width*msg.height*msg.channels;
+		unsigned int outsize = msg.width*msg.height*msg.channels;
 		struct jpge::params paramsCompression = jpge::params();
 		paramsCompression.m_quality = (int)compression;
 

@@ -566,9 +566,10 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
 
             for(lClientIt = clients.begin(); lClientIt != clients.end(); lClientIt++)
             {
-                if((*lClientIt).second.subscribers.count(typeCapteur) > 0)
+                if((*lClientIt).second.subscribers.count(typeCapteur) > 0){
                     bufferNewSize = (*lClientIt).second.buffersInfo[typeCapteur];
-                otherClientConnected = true;
+                    otherClientConnected = true;
+                }
             }
 
             if(!otherClientConnected)
@@ -578,6 +579,8 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
                     "Aucun client actuellement connecte au capteur %02X, inscription seulement ignoree",
                     typeCapteur
                 );
+                in_client.lasterror = "No client currently connected to the sensor requested for silent subscribe. Ignoring.";
+                in_client.lasterror_issued_by = "subscribeTo";
                 return -1;
             }
 
