@@ -106,7 +106,12 @@ bool newConfReceived(ros4mat::S_Cam::Request& request, ros4mat::S_Cam::Response&
 		fgets(bufR, sizeof(bufR), console);
 		if(bufR[0] == '1'){
             ROS_INFO("Kill node uvc_camera");
-			ret = system("rosnode kill /uvc_camera && sleep 0.2");
+			ret = system("rosnode kill /uvc_camera && sleep 0.5");
+		}
+
+		if(nbrSubscribers == 1){
+			ROS_INFO("Pas de publisher disponible, creation de celui-ci...");
+			camPublisher = n->advertise<ros4mat::M_Cam>("D_Cam/data", request.camBufferSize);
 		}
 
 		ssRequest << "rosrun uvc_camera camera_node _width:=" << request.width << " _height:=" << request.height << " _device:=" << request.device << " _fps:=" << (unsigned int)request.fps << " &";
@@ -120,11 +125,6 @@ bool newConfReceived(ros4mat::S_Cam::Request& request, ros4mat::S_Cam::Response&
 		ret = system(ssRequest.str().c_str()); // Bon ok c'est un peu arbitraire. Plus le nombre est petit, plus c'est clair
 
 		compression = request.compressionRatio;
-		
-		if(nbrSubscribers == 1){
-			ROS_INFO("Pas de publisher disponible, creation de celui-ci...");
-			camPublisher = n->advertise<ros4mat::M_Cam>("D_Cam/data", request.camBufferSize);
-		}
 
 		*loop_rate = ros::Rate((double)request.fps);
 		running = true;
