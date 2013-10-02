@@ -606,6 +606,9 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
     paramsHokuyo lStructHokuyo;
     paramsComputer lStructComputer;
 
+    FILE *console;
+    char bufR[10];
+
     switch(typeCapteur)
     {
     case MSGID_ADC:
@@ -626,6 +629,9 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
                     "Le service de parametrage de l'ADC a renvoye une erreur (code %d).",
                     lParamsSetAdc.response.ret
                 );
+                in_client.lasterror = "The ADC silent subscription did not execute properly!\n";
+                in_client.lasterror += lParamsSetAdc.response.errorDesc;
+                in_client.lasterror_issued_by = "subscribeTo";
                 return -1;
             }
         }
@@ -649,10 +655,23 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
                     "Le service de parametrage de l'ADC a renvoye une erreur (code %d).",
                     lParamsSetAdc.response.ret
                 );
+                in_client.lasterror = "The ADC subscription did not execute properly!\n";
+                in_client.lasterror += lParamsSetAdc.response.errorDesc;
+                in_client.lasterror_issued_by = "subscribeTo";
                 return -1;
             }
         }
 
+        if(!(console = popen("rostopic list | grep /D_ADC/data | wc -l", "r"))){
+            ROS_WARN("Impossible de verifier si l'ADC est deja en fonction...");
+        }
+        fgets(bufR, sizeof(bufR), console);
+        if(bufR[0] == '0'){
+            ROS_ERROR("Node ADC not started!");
+            in_client.lasterror = "The ADC node is not started or crashed (topic not present)! Impossible to subscribe to its topic.";
+            in_client.lasterror_issued_by = "subscribeTo";
+            return -1;
+        }
         sub = nodeRos.subscribe("/D_ADC/data", 2 * SOCKET_SEND_TIMEOUT_SEC * 2000, dataAdcReceived);
         break;
 
@@ -669,6 +688,9 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
                     "Le service de parametrage de l'IMU en mode inscription seulement a renvoye une erreur (code %d).",
                     lParamsSetImu.response.ret
                 );
+                in_client.lasterror = "The IMU silent subscription did not execute properly!\n";
+                in_client.lasterror += lParamsSetImu.response.errorDesc;
+                in_client.lasterror_issued_by = "subscribeTo";
                 return -1;
             }
         }
@@ -685,18 +707,51 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
                     "Le service de parametrage de l'IMU a renvoye une erreur (code %d).",
                     lParamsSetImu.response.ret
                 );
+                in_client.lasterror = "The IMU subscription did not execute properly!\n";
+                in_client.lasterror += lParamsSetImu.response.errorDesc;
+                in_client.lasterror_issued_by = "subscribeTo";
                 return -1;
             }
         }
 
+        if(!(console = popen("rostopic list | grep /D_IMU/data | wc -l", "r"))){
+            ROS_WARN("Impossible de verifier si l'IMU est deja en fonction...");
+        }
+        fgets(bufR, sizeof(bufR), console);
+        if(bufR[0] == '0'){
+            ROS_ERROR("Node IMU not started!");
+            in_client.lasterror = "The IMU node is not started or crashed (topic not present)! Impossible to subscribe to its topic.";
+            in_client.lasterror_issued_by = "subscribeTo";
+            return -1;
+        }
         sub = nodeRos.subscribe("/D_IMU/data", 2 * SOCKET_SEND_TIMEOUT_SEC * 250, dataImuReceived);
         break;
 
     case MSGID_GPS:
+        if(!(console = popen("rostopic list | grep /extended_fix | wc -l", "r"))){
+            ROS_WARN("Impossible de verifier si le GPS est deja en fonction...");
+        }
+        fgets(bufR, sizeof(bufR), console);
+        if(bufR[0] == '0'){
+            ROS_ERROR("Node GPS not started!");
+            in_client.lasterror = "The GPS node is not started! Impossible to subscribe to its topic.";
+            in_client.lasterror_issued_by = "subscribeTo";
+            return -1;
+        }
         sub = nodeRos.subscribe("/extended_fix", 2 * SOCKET_SEND_TIMEOUT_SEC * 10, dataGpsReceived);
         break;
 
     case MSGID_HOKUYO:
+        if(!(console = popen("rostopic list | grep /scan | wc -l", "r"))){
+            ROS_WARN("Impossible de verifier si le Hokuyo est deja en fonction...");
+        }
+        fgets(bufR, sizeof(bufR), console);
+        if(bufR[0] == '0'){
+            ROS_ERROR("Node Hokuyo not started!");
+            in_client.lasterror = "The Hokuyo node is not started! Impossible to subscribe to its topic.";
+            in_client.lasterror_issued_by = "subscribeTo";
+            return -1;
+        }
         sub = nodeRos.subscribe("/scan", 2 * SOCKET_SEND_TIMEOUT_SEC * 10, dataHokuyoReceived);
         break;
 
@@ -716,6 +771,9 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
                     "Le service de parametrage de la camera a renvoye une erreur (code %d).",
                     lParamsSetCam.response.ret
                 );
+                in_client.lasterror = "The silent Camera subscription did not execute properly!\n";
+                in_client.lasterror += lParamsSetCam.response.errorDesc;
+                in_client.lasterror_issued_by = "subscribeTo";
                 return -1;
             }
         }
@@ -740,8 +798,22 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
                     "Le service de parametrage de la camera a renvoye une erreur (code %d).",
                     lParamsSetCam.response.ret
                 );
+                in_client.lasterror = "The Camera subscription did not execute properly!\n";
+                in_client.lasterror += lParamsSetCam.response.errorDesc;
+                in_client.lasterror_issued_by = "subscribeTo";
                 return -1;
             }
+        }
+
+        if(!(console = popen("rostopic list | grep /D_Cam/data | wc -l", "r"))){
+            ROS_WARN("Impossible de verifier si la camera est deja en fonction...");
+        }
+        fgets(bufR, sizeof(bufR), console);
+        if(bufR[0] == '0'){
+            ROS_ERROR("Node Camera not started!");
+            in_client.lasterror = "The Camera node is not started or crashed (topic not present)! Impossible to subscribe to its topic.";
+            in_client.lasterror_issued_by = "subscribeTo";
+            return -1;
         }
 
         sub = nodeRos.subscribe("/D_Cam/data", 2 * SOCKET_SEND_TIMEOUT_SEC * 30, dataCamReceived);
@@ -763,6 +835,9 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
                     "Le service de parametrage de la camera stereo a renvoye une erreur (code %d).",
                     lParamsSetStereoCam.response.ret
                 );
+                in_client.lasterror = "The silent StereoCamera subscription did not execute properly!\n";
+                in_client.lasterror += lParamsSetStereoCam.response.errorDesc;
+                in_client.lasterror_issued_by = "subscribeTo";
                 return -1;
             }
         }
@@ -791,9 +866,24 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
                     "Le service de parametrage de la camera stereo a renvoye une erreur (code %d).",
                     lParamsSetStereoCam.response.ret
                 );
+                in_client.lasterror = "The StereoCamera subscription did not execute properly!\n";
+                in_client.lasterror += lParamsSetStereoCam.response.errorDesc;
+                in_client.lasterror_issued_by = "subscribeTo";
                 return -1;
             }
         }
+
+        if(!(console = popen("rostopic list | grep /D_CamStereo/data | wc -l", "r"))){
+            ROS_WARN("Impossible de verifier si la camera est deja en fonction...");
+        }
+        fgets(bufR, sizeof(bufR), console);
+        if(bufR[0] == '0'){
+            ROS_ERROR("Node StereoCamera not started!");
+            in_client.lasterror = "The Stereo Camera node is not started or crashed (topic not present)! Impossible to subscribe to its topic.";
+            in_client.lasterror_issued_by = "subscribeTo";
+            return -1;
+        }
+
 
         sub = nodeRos.subscribe("/D_CamStereo/data", 2 * SOCKET_SEND_TIMEOUT_SEC * 30, dataStereoCamReceived);
         break;
@@ -814,6 +904,9 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
                     "Le service de parametrage de la kinect a renvoye une erreur (code %d).",
                     lParamsSetKinect.response.ret
                 );
+                in_client.lasterror = "The silent Kinect subscription did not execute properly!\n";
+                in_client.lasterror += lParamsSetKinect.response.errorDesc;
+                in_client.lasterror_issued_by = "subscribeTo";
                 return -1;
             }
         }
@@ -834,9 +927,23 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
                     "Le service de parametrage de la kinect a renvoye une erreur (code %d).",
                     lParamsSetKinect.response.ret
                 );
+                in_client.lasterror = "The Kinect subscription did not execute properly!\n";
+                in_client.lasterror += lParamsSetKinect.response.errorDesc;
+                in_client.lasterror_issued_by = "subscribeTo";
                 return -1;
             }
         }
+        if(!(console = popen("rostopic list | grep /D_Kinect/data | wc -l", "r"))){
+            ROS_WARN("Impossible de verifier si la Kinect est deja en fonction...");
+        }
+        fgets(bufR, sizeof(bufR), console);
+        if(bufR[0] == '0'){
+            ROS_ERROR("Node Kinect not started!");
+            in_client.lasterror = "The Kinect node is not started or crashed (topic not present)! Impossible to subscribe to its topic.";
+            in_client.lasterror_issued_by = "subscribeTo";
+            return -1;
+        }
+
         sub = nodeRos.subscribe("/D_Kinect/data", 2 * SOCKET_SEND_TIMEOUT_SEC * 10, dataKinectReceived);
         break;
 

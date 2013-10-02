@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <termios.h>
+ #include <unistd.h>
 #include <sys/ioctl.h>
 #include <string>
 #include <sstream>
@@ -115,7 +116,7 @@ bool newConfReceived(ros4mat::S_Cam::Request& request, ros4mat::S_Cam::Response&
 		
 		ssRequest.str("");
 		ssRequest << "uvcdynctrl --device=" << request.device.substr(5) << " -s \"Exposure (Absolute)\"" << request.exposure;
-		ret = system("sleep 4");		// On attend que la camera soit configuree
+		sleep(4);		// On attend que la camera soit configuree
 		ret = system(ssRequest.str().c_str()); // Bon ok c'est un peu arbitraire. Plus le nombre est petit, plus c'est clair
 
 		compression = request.compressionRatio;
