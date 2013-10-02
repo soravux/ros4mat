@@ -127,7 +127,7 @@ bool newConfStereo(ros4mat::S_StereoCam::Request& request, ros4mat::S_StereoCam:
             response.ret = -1;
             ssRequest.str("");
             ssRequest << "Left camera /dev/video" << request.device_L << " is not present! Check USB connection and camera ID.";
-            response.errorDesc = ssRequest.str();
+            response.errorDesc = "Left camera device is not present! Check USB connection and camera ID.";
             return false;
 		}
 
@@ -136,7 +136,7 @@ bool newConfStereo(ros4mat::S_StereoCam::Request& request, ros4mat::S_StereoCam:
             response.ret = -1;
             ssRequest.str("");
             ssRequest << "Right camera /dev/video" << request.device_R << " is not present! Check USB connection and camera ID.";
-            response.errorDesc = ssRequest.str();
+            response.errorDesc = "Right camera device is not present! Check USB connection and camera ID.";
             return false;
 		}
 

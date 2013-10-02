@@ -105,7 +105,7 @@ bool newConfReceived(ros4mat::S_Cam::Request& request, ros4mat::S_Cam::Response&
             ssRequest.str("");
             ssRequest << "Device " << request.device << " is not present! Check USB connection and camera ID.";
             ROS_INFO(ssRequest.str().c_str());
-            response.errorDesc = ssRequest.str();
+            response.errorDesc = "Camera device is not present! Check USB connection and camera ID.";
             return false;
 		}
 
