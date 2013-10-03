@@ -266,7 +266,7 @@ void dataCamReceived(const ros4mat::M_Cam::ConstPtr &msg)
     }
 }
 
-
+int k = 0;
 void dataStereoCamReceived(const ros4mat::M_StereoCam::ConstPtr &image)
 {
     char                                    *bufferImg_L, *bufferImg_R;
@@ -320,6 +320,21 @@ void dataStereoCamReceived(const ros4mat::M_StereoCam::ConstPtr &image)
 
         lMsg->cptr_L = bufferImg_L;
         lMsg->cptr_R = bufferImg_R;
+
+        if(k == 0){
+            std::ofstream outTestJpg1, outTestJpg2;
+            ROS_INFO("Writing JPG to files");
+            outTestJpg1.open ("SEMIRAW_testgauche.jpg");
+            outTestJpg1.write((char *)lMsg->cptr_L, lMsg->sizeData_L);
+            outTestJpg1.close();
+            ROS_INFO("Writing JPG to files");
+            outTestJpg2.open ("SEMIRAW_testdroite.jpg");
+            outTestJpg2.write((char *)lMsg->cptr_R, lMsg->sizeData_R);
+            outTestJpg2.close();
+            k = 1;
+        }
+
+
         (*lClientIt).second.subscribers[MSGID_WEBCAM_STEREO].second.push((void *) lMsg);
         lMsg = NULL;
 
