@@ -97,6 +97,10 @@ void dataCameraSync(const sensor_msgs::Image::ConstPtr& imageL, const sensor_msg
             outTestJpg1.close();
         }
 
+        
+
+        delete[] bufjpeg;
+
 
         outsize = msg.width*msg.height*msg.channels;
 		/* Left image */
@@ -105,8 +109,6 @@ void dataCameraSync(const sensor_msgs::Image::ConstPtr& imageL, const sensor_msg
 
 		for(int i=0; i < outsize; i++)
 			msg.image_left.push_back(bufjpeg[i]);
-
-		delete[] bufjpeg;
 
         if(k == 0){
             std::ofstream outTestJpg1;
