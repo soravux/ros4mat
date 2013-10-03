@@ -89,8 +89,11 @@ void dataCameraSync(const sensor_msgs::Image::ConstPtr& imageL, const sensor_msg
 
 		delete[] bufjpeg;
 
+        outsize = msg.width*msg.height*msg.channels;
 		bufjpeg = new unsigned char[msg.width*msg.height*msg.channels];
-		ok = jpge::compress_image_to_jpeg_file_in_memory(bufjpeg, outsize, msg.width, msg.height, msg.channels, dataImg_R, paramsCompression);
+		bool ok2 = jpge::compress_image_to_jpeg_file_in_memory(bufjpeg, outsize, msg.width, msg.height, msg.channels, dataImg_R, paramsCompression);
+
+        ROS_DEBUG("First call : %d / Second call : %d", ok, ok2);
 
 		for(int i=0; i < outsize; i++)
 			msg.image_right.push_back(bufjpeg[i]);
@@ -156,10 +159,10 @@ bool newConfStereo(ros4mat::S_StereoCam::Request& request, ros4mat::S_StereoCam:
 
 		ret = system("sleep 4");		// On attend que la camera soit configuree
 		ssRequest.str("");
-		ssRequest << "uvcdynctrl --device=" << request.device_L.substr(5) << " -s \"Exposure (Absolute)\"" << request.exposure_L;
+		ssRequest << "uvcdynctrl --device=" << request.device_L.substr(5) << " -s \"Exposure (Absolute)\" " << request.exposure_L;
 		ret = system(ssRequest.str().c_str()); // Bon ok c'est un peu arbitraire. Plus le nombre est petit, plus c'est clair
 		ssRequest.str("");
-		ssRequest << "uvcdynctrl --device=" << request.device_R.substr(5) << " -s \"Exposure (Absolute)\"" << request.exposure_R;
+		ssRequest << "uvcdynctrl --device=" << request.device_R.substr(5) << " -s \"Exposure (Absolute)\" " << request.exposure_R;
 		ret = system(ssRequest.str().c_str()); // Bon ok c'est un peu arbitraire. Plus le nombre est petit, plus c'est clair
         ROS_INFO(ssRequest.str().c_str());
 
