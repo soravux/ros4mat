@@ -803,10 +803,11 @@ void ros4mat_adc(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
 void ros4mat_serial(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
-    char            *msg = NULL;
+    char            *msg = NULL, *msgCompress = NULL;
     msgHeader       lHeader;
     msgSerialAns    lSerieAns;
-    int             h, lPortSize;
+    int             h, lPortSize, i;
+    long            uncompressSize;
     char            *out_data;
 
     if (initialized == 0) mexErrMsgTxt("No connection established.");
@@ -858,14 +859,43 @@ void ros4mat_serial(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
     /* Reallocate msg buffer for data reception */
     mxFree(msg);
-    msg = (char *) mxCalloc(1, sizeof(msgHeader) + lHeader.size * sizeof(msgSerialAns));
+    msgCompress = (char *) mxCalloc(1, lHeader.compressSize);
 
-    receive_message(msg, sizeof(msgHeader) + lHeader.size * sizeof(msgSerialAns));
+    receive_message(msgCompress, lHeader.compressSize);
+
+    msg = (char *) mxCalloc(1, lHeader.uncompressSize);
+
+    if (lHeader.compressionType == MSGID_HEADER_NOCOMPRESSION)
+    {
+        memcpy(msg, msgCompress, lHeader.uncompressSize);
+    }
+    else if (lHeader.compressionType == MSGID_HEADER_ZLIBCOMPRESSION)
+    {
+        uncompressSize = lHeader.uncompressSize;
+        i = ezuncompress(
+            msg,
+            &uncompressSize,
+            (unsigned char *) msgCompress,
+            lHeader.compressSize
+        );
+        if (i < 0)
+        {
+            mexErrMsgTxt("Corruption error while uncompressing data!");
+        }
+
+        if ((int) uncompressSize != lHeader.uncompressSize)
+        {
+            mexErrMsgTxt("Uncompressing data size mismatch.");
+        }
+    }
+
+    mxFree(msgCompress);
+
 
     /* Matlab formatting */
-    memcpy(&lSerieAns, msg + sizeof(msgHeader), sizeof(msgSerialAns));
+    memcpy(&lSerieAns, msg, sizeof(msgSerialAns));
     out_data = mxCalloc(lSerieAns.dataLength, sizeof(char));
-    memcpy(out_data, msg + sizeof(msgHeader) + sizeof(msgSerialAns), lSerieAns.dataLength);
+    memcpy(out_data, msg + sizeof(msgSerialAns), lSerieAns.dataLength);
     plhs[0] = mxCreateString(out_data);
     mxFree(msg);
 }

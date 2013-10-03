@@ -161,6 +161,7 @@ bool newConfStereo(ros4mat::S_StereoCam::Request& request, ros4mat::S_StereoCam:
 		ssRequest.str("");
 		ssRequest << "uvcdynctrl --device=" << request.device_R.substr(5) << " -s \"Exposure (Absolute)\"" << request.exposure_R;
 		ret = system(ssRequest.str().c_str()); // Bon ok c'est un peu arbitraire. Plus le nombre est petit, plus c'est clair
+        ROS_INFO(ssRequest.str().c_str());
 
 		compression = request.compressionRatio;
 

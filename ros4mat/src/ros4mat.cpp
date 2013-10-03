@@ -308,6 +308,10 @@ void dataStereoCamReceived(const ros4mat::M_StereoCam::ConstPtr &image)
         for(unsigned int i = 0; i < lMsg->sizeData_L; i++)
         {
             bufferImg_L[i] = image->image_left[i];
+        }
+
+        for(unsigned int i = 0; i < lMsg->sizeData_R; i++)
+        {
             bufferImg_R[i] = image->image_right[i];
         }
 
