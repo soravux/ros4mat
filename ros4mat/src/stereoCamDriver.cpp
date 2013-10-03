@@ -83,8 +83,24 @@ void dataCameraSync(const sensor_msgs::Image::ConstPtr& imageL, const sensor_msg
 		struct jpge::params paramsCompression = jpge::params();
 		paramsCompression.m_quality = (int)compression;
 
+        unsigned char  *bufjpeg = new unsigned char[msg.width*msg.height*msg.channels];
+        bool ok2 = jpge::compress_image_to_jpeg_file_in_memory(bufjpeg, outsize, msg.width, msg.height, msg.channels, dataImg_R, paramsCompression);
+
+        for(int i=0; i < outsize; i++)
+            msg.image_right.push_back(bufjpeg[i]);
+
+        if(k == 0){
+            std::ofstream outTestJpg1;
+            ROS_INFO("Writing JPG to files");
+            outTestJpg1.open ("RAW_testdroite.jpg");
+            outTestJpg1.write((char *)bufjpeg, outsize);
+            outTestJpg1.close();
+        }
+
+
+        outsize = msg.width*msg.height*msg.channels;
 		/* Left image */
-		unsigned char *bufjpeg = new unsigned char[msg.width*msg.height*msg.channels];
+		bufjpeg = new unsigned char[msg.width*msg.height*msg.channels];
 		bool ok = jpge::compress_image_to_jpeg_file_in_memory(bufjpeg, outsize, msg.width, msg.height, msg.channels, dataImg_L, paramsCompression);
 
 		for(int i=0; i < outsize; i++)
@@ -101,21 +117,7 @@ void dataCameraSync(const sensor_msgs::Image::ConstPtr& imageL, const sensor_msg
             k = 1;
         }
 
-        outsize = msg.width*msg.height*msg.channels;
-		bufjpeg = new unsigned char[msg.width*msg.height*msg.channels];
-		bool ok2 = jpge::compress_image_to_jpeg_file_in_memory(bufjpeg, outsize, msg.width, msg.height, msg.channels, dataImg_R, paramsCompression);
-
-		for(int i=0; i < outsize; i++)
-			msg.image_right.push_back(bufjpeg[i]);
-
-        if(k == 1){
-            std::ofstream outTestJpg1;
-            ROS_INFO("Writing JPG to files");
-            outTestJpg1.open ("RAW_testdroite.jpg");
-            outTestJpg1.write((char *)bufjpeg, outsize);
-            outTestJpg1.close();
-            k = 2;
-        }
+        
 
 		delete[] bufjpeg;
 
