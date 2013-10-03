@@ -287,7 +287,16 @@ void dataStereoCamReceived(const ros4mat::M_StereoCam::ConstPtr &image)
         lMsg->channels = 3;
         lMsg->sizeData_L = (image->image_left).size();
         lMsg->sizeData_R = (image->image_right).size();
-        ROS_INFO("Size left / Size right = %d / %d", lMsg->sizeData_L, lMsg->sizeData_R);
+
+        if(image->image_left[0] != 0xd8 || image->image_left[1] != 0xff){
+            ROS_INFO("Error in LEFT JPG buffer, beginning with %X%X instead of 0xd8ff", image->image_left[0], image->image_left[1]);
+            ROS_INFO("Size left / Size right = %d / %d", lMsg->sizeData_L, lMsg->sizeData_R);
+            }
+        if(image->image_right[0] != 0xd8 || image->image_right[1] != 0xff){
+            ROS_INFO("Error in RIGHT JPG buffer, beginning with %X%X instead of 0xd8ff", image->image_right[0], image->image_right[1]);
+            ROS_INFO("Size left / Size right = %d / %d", lMsg->sizeData_L, lMsg->sizeData_R);
+            }
+
         lMsg->compressionType = image->compressionRatio;
         if(lMsg->sizeData_L != lMsg->width_L * lMsg->height_L * 3 && lMsg->compressionType == 0)
         {

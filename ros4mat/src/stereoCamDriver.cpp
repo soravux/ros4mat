@@ -102,12 +102,12 @@ void dataCameraSync(const sensor_msgs::Image::ConstPtr& imageL, const sensor_msg
         }*/
 
 
-        delete[] bufjpeg;
+        /*delete[] bufjpeg;
 
         outsize = msg.width*msg.height*msg.channels;
 		bufjpeg = new unsigned char[msg.width*msg.height*msg.channels];
 		bool ok2 = jpge::compress_image_to_jpeg_file_in_memory(bufjpeg, outsize, msg.width, msg.height, msg.channels, dataImg_R, paramsCompression);
-
+*/
         msg.image_right.clear();
         msg.image_right.reserve(outsize);
 		for(int i=0; i < outsize; i++)
