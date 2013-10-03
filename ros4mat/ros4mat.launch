@@ -1,11 +1,12 @@
 <launch>
   <node name="E_IMU" pkg="ros4mat" type="E_IMU" respawn="true" />
   <node name="E_ADC" pkg="ros4mat" type="E_ADC" respawn="true" />
-  <node name="gpsd_client" pkg="gpsd_client" type="gpsd_client" args="_use_gps_time:=false" respawn="true" />
+  <node name="gpsd_client" pkg="gpsd_client" type="gpsd_client" args="_use_gps_time:=false" respawn="false" />
   <node name="E_Computer" pkg="ros4mat" type="E_Computer" respawn="true" />
   <node name="E_Serial" pkg="ros4mat" type="E_Serial" respawn="true" />
   <node name="E_Logico" pkg="ros4mat" type="E_Logico" respawn="true" />
   <node name="E_Camera" pkg="ros4mat" type="E_Camera" respawn="true" />
+  <node name="hokuyo_node" pkg="hokuyo_node" type="hokuyo_node" respawn="false"/>
   <node name="E_StereoCamera" pkg="ros4mat" type="E_StereoCamera" respawn="true" />
   <node name="E_Kinect" pkg="ros4mat" type="E_Kinect" respawn="true" />
   <include file="$(find openni_launch)/launch/openni.launch">
