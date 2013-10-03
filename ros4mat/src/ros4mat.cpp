@@ -1839,7 +1839,7 @@ int main(int argc, char **argv)
 
                             msgCam                  lCamData;
                             msgStereoCamInternal    *currentCamStruct = 0;
-                            ofstream                outTestJpg1, outTestJpg2;
+                            std::ofstream                outTestJpg1, outTestJpg2;
                             for(unsigned int k = 0; k < lAnswerHeader.size; k += 1)
                             {
                                 // msgCam struct copy at the packet beginning
@@ -1883,9 +1883,9 @@ int main(int argc, char **argv)
                                     outTestJpg1.open ("testgauche.jpg");
                                     outTestJpg1.write(currentCamStruct->cptr_L, currentCamStruct->sizeData_L);
                                     outTestJpg1.close();
-                                    outTestJpg1.open ("testdroite.jpg");
-                                    outTestJpg1.write(currentCamStruct->cptr_R, currentCamStruct->sizeData_R);
-                                    outTestJpg1.close();
+                                    outTestJpg2.open ("testdroite.jpg");
+                                    outTestJpg2.write(currentCamStruct->cptr_R, currentCamStruct->sizeData_R);
+                                    outTestJpg2.close();
                                 }
 
                                 // Buffer pruning
