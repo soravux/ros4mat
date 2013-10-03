@@ -266,7 +266,7 @@ void dataCamReceived(const ros4mat::M_Cam::ConstPtr &msg)
     }
 }
 
-int k = 0;
+int kk = 0;
 void dataStereoCamReceived(const ros4mat::M_StereoCam::ConstPtr &image)
 {
     char                                    *bufferImg_L, *bufferImg_R;
@@ -287,6 +287,7 @@ void dataStereoCamReceived(const ros4mat::M_StereoCam::ConstPtr &image)
         lMsg->channels = 3;
         lMsg->sizeData_L = (image->image_left).size();
         lMsg->sizeData_R = (image->image_right).size();
+        ROS_INFO("Size left / Size right = %d / %d", lMsg->sizeData_L, lMsg->sizeData_R);
         lMsg->compressionType = image->compressionRatio;
         if(lMsg->sizeData_L != lMsg->width_L * lMsg->height_L * 3 && lMsg->compressionType == 0)
         {
@@ -321,7 +322,7 @@ void dataStereoCamReceived(const ros4mat::M_StereoCam::ConstPtr &image)
         lMsg->cptr_L = bufferImg_L;
         lMsg->cptr_R = bufferImg_R;
 
-        if(k == 0){
+        if(kk == 0){
             std::ofstream outTestJpg1, outTestJpg2;
             ROS_INFO("Writing JPG to files");
             outTestJpg1.open ("SEMIRAW_testgauche.jpg");
@@ -331,7 +332,7 @@ void dataStereoCamReceived(const ros4mat::M_StereoCam::ConstPtr &image)
             outTestJpg2.open ("SEMIRAW_testdroite.jpg");
             outTestJpg2.write((char *)lMsg->cptr_R, lMsg->sizeData_R);
             outTestJpg2.close();
-            k = 1;
+            kk = 1;
         }
 
 
