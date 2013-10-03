@@ -96,7 +96,7 @@ void dataCameraSync(const sensor_msgs::Image::ConstPtr& imageL, const sensor_msg
             std::ofstream outTestJpg1;
             ROS_INFO("Writing JPG to files");
             outTestJpg1.open ("RAW_testgauche.jpg");
-            outTestJpg1.write(bufjpeg, outsize);
+            outTestJpg1.write((char *)bufjpeg, outsize);
             outTestJpg1.close();
             k = 1;
         }
@@ -112,7 +112,7 @@ void dataCameraSync(const sensor_msgs::Image::ConstPtr& imageL, const sensor_msg
             std::ofstream outTestJpg1;
             ROS_INFO("Writing JPG to files");
             outTestJpg1.open ("RAW_testdroite.jpg");
-            outTestJpg1.write(bufjpeg, outsize);
+            outTestJpg1.write((char *)bufjpeg, outsize);
             outTestJpg1.close();
             k = 2;
         }
