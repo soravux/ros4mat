@@ -1128,18 +1128,23 @@ void ros4mat_camera_stereo(int nlhs, mxArray *plhs[], int nrhs, const mxArray *p
         }
 
         /* Matlab formatting */
-        for(y = 0, b = 0; y < lCam_l.width * lCam_l.height * 3 - lCam_l.width * 3; b++, y += lCam_l.width * 3)
+        for(y = 0, b = 0; y < lCam_l.width * lCam_l.height * lCam_l.channels - lCam_l.width * lCam_l.channels; b++, y += lCam_l.width * lCam_l.channels)
         {
-            for(x = y, a = b; x < y + lCam_l.width * 3; a += lCam_l.height)
+            for(x = y, a = b; x < y + lCam_l.width * lCam_r.channels; a += lCam_l.height)
             {
-                /* Handling both images at the same time. First R left, then R right, then G left... */
                 #define DESTINATION_STRIDE_STEREO_L     a + i * sizeImg_l / 2 + lCam_l.width * lCam_l.height
-                #define DESTINATION_STRIDE_STEREO_R     a + i * sizeImg_r / 2 + lCam_l.width * lCam_l.height
-                out_data_l[DESTINATION_STRIDE_STEREO_L * 0] = inPixelSource_l[x];
+                out_data_l[DESTINATION_STRIDE_STEREO_L * 0] = inPixelSource_l[x++];
+                out_data_l[DESTINATION_STRIDE_STEREO_L * 1] = inPixelSource_l[x++];
+                out_data_l[DESTINATION_STRIDE_STEREO_L * 2] = inPixelSource_l[x++];
+            }
+        }
+        for(y = 0, b = 0; y < lCam_r.width * lCam_r.height * lCam_r.channels - lCam_r.width * lCam_r.channels; b++, y += lCam_r.width * lCam_r.channels)
+        {
+            for(x = y, a = b; x < y + lCam_r.width * lCam_r.channels; a += lCam_r.height)
+            {
+                #define DESTINATION_STRIDE_STEREO_R     a + i * sizeImg_r / 2 + lCam_r.width * lCam_r.height
                 out_data_r[DESTINATION_STRIDE_STEREO_R * 0] = inPixelSource_r[x++];
-                out_data_l[DESTINATION_STRIDE_STEREO_L * 1] = inPixelSource_l[x];
                 out_data_r[DESTINATION_STRIDE_STEREO_R * 1] = inPixelSource_r[x++];
-                out_data_l[DESTINATION_STRIDE_STEREO_L * 2] = inPixelSource_l[x];
                 out_data_r[DESTINATION_STRIDE_STEREO_R * 2] = inPixelSource_r[x++];
             }
         }
