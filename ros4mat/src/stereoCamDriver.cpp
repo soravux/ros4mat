@@ -93,8 +93,6 @@ void dataCameraSync(const sensor_msgs::Image::ConstPtr& imageL, const sensor_msg
 		bufjpeg = new unsigned char[msg.width*msg.height*msg.channels];
 		bool ok2 = jpge::compress_image_to_jpeg_file_in_memory(bufjpeg, outsize, msg.width, msg.height, msg.channels, dataImg_R, paramsCompression);
 
-        ROS_DEBUG("First call : %d / Second call : %d", ok, ok2);
-
 		for(int i=0; i < outsize; i++)
 			msg.image_right.push_back(bufjpeg[i]);
 

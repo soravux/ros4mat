@@ -1060,7 +1060,7 @@ void ros4mat_camera_stereo(int nlhs, mxArray *plhs[], int nrhs, const mxArray *p
     unsigned char   *out_data_l, *out_data_r;
     double          *out_data_ts;
     unsigned int    sizeImg_l = 0, sizeImg_r = 0;
-    unsigned int    cam_size[4] = { 0, 0, 3, 0 };
+    unsigned int    cam_size_l[4], cam_size_r[4];
 
     if (initialized == 0) mexErrMsgTxt("No connection established.");
 
@@ -1072,12 +1072,17 @@ void ros4mat_camera_stereo(int nlhs, mxArray *plhs[], int nrhs, const mxArray *p
         memset(&lCam_l, 0, sizeof(msgCam));
     }
 
-    cam_size[0] = lCam_l.height;
-    cam_size[1] = lCam_l.width;
-    cam_size[3] = lHeader.size;
+    cam_size_l[0] = lCam_l.height;
+    cam_size_l[1] = lCam_l.width;
+    cam_size_l[2] = lCam_l.channels;
+    cam_size_l[3] = lHeader.size;
+    cam_size_r[0] = lCam_r.height;
+    cam_size_r[1] = lCam_r.width;
+    cam_size_r[2] = lCam_r.channels;
+    cam_size_r[3] = lHeader.size;
 
-    plhs[0] = mxCreateNumericArray(4, cam_size, mxUINT8_CLASS, mxREAL);
-    plhs[1] = mxCreateNumericArray(4, cam_size, mxUINT8_CLASS, mxREAL);
+    plhs[0] = mxCreateNumericArray(4, cam_size_l, mxUINT8_CLASS, mxREAL);
+    plhs[1] = mxCreateNumericArray(4, cam_size_r, mxUINT8_CLASS, mxREAL);
     plhs[2] = mxCreateDoubleMatrix(1, lHeader.size, mxREAL);
     out_data_l = (unsigned char *) mxGetData(plhs[0]);
     out_data_r = (unsigned char *) mxGetData(plhs[1]);
@@ -1101,15 +1106,23 @@ void ros4mat_camera_stereo(int nlhs, mxArray *plhs[], int nrhs, const mxArray *p
                 /* Set the pixel source pointer directly to the message header */
                 inPixelSource_l = msg + msg_pos;
                 msg_pos += lCam_l.sizeData;
+                break;
+            default:
+                /* Decompress the image first and set the pixel source pointer to it */
+                inPixelSource_l = (char *) mxMalloc(sizeImg_l);
+                decodeJPEG(msg + msg_pos, lCam_l.sizeData, (uint32_t*)inPixelSource_l);
+                msg_pos += lCam_l.sizeData;
+        }
+
+        switch (lCam_r.compressionType) {
+            case MSGID_WEBCAM_NOCOMPRESSION:
+                /* Set the pixel source pointer directly to the message header */
                 inPixelSource_r = msg + msg_pos;
                 msg_pos += lCam_r.sizeData;
                 break;
             default:
                 /* Decompress the image first and set the pixel source pointer to it */
-                inPixelSource_l = (char *) mxMalloc(sizeImg_l);
                 inPixelSource_r = (char *) mxMalloc(sizeImg_r);
-                decodeJPEG(msg + msg_pos, lCam_l.sizeData, (uint32_t*)inPixelSource_l);
-                msg_pos += lCam_l.sizeData;
                 decodeJPEG(msg + msg_pos, lCam_r.sizeData, (uint32_t*)inPixelSource_r);
                 msg_pos += lCam_r.sizeData;
         }
