@@ -1059,7 +1059,7 @@ void ros4mat_camera_stereo(int nlhs, mxArray *plhs[], int nrhs, const mxArray *p
     uint32_t        msg_pos;
     unsigned char   *out_data_l, *out_data_r;
     double          *out_data_ts;
-    unsigned int    sizeImg = 0;
+    unsigned int    sizeImg_l = 0, sizeImg_r = 0;
     unsigned int    cam_size[4] = { 0, 0, 3, 0 };
 
     if (initialized == 0) mexErrMsgTxt("No connection established.");
@@ -1092,8 +1092,8 @@ void ros4mat_camera_stereo(int nlhs, mxArray *plhs[], int nrhs, const mxArray *p
 
         out_data_ts[i / 2] = (double) lCam_l.timestamp;
 
-        sizeImg = lCam_l.width * lCam_l.height * 3;
-        y = 0;
+        sizeImg_l = lCam_l.width * lCam_l.height * lCam_l.channels;
+        sizeImg_r = lCam_r.width * lCam_r.height * lCam_r.channels;
 
         /* Get image source */
         switch (lCam_l.compressionType) {
@@ -1106,8 +1106,8 @@ void ros4mat_camera_stereo(int nlhs, mxArray *plhs[], int nrhs, const mxArray *p
                 break;
             default:
                 /* Decompress the image first and set the pixel source pointer to it */
-                inPixelSource_l = (char *) mxMalloc(sizeImg);
-                inPixelSource_r = (char *) mxMalloc(sizeImg);
+                inPixelSource_l = (char *) mxMalloc(sizeImg_l);
+                inPixelSource_r = (char *) mxMalloc(sizeImg_r);
                 decodeJPEG(msg + msg_pos, lCam_l.sizeData, (uint32_t*)inPixelSource_l);
                 msg_pos += lCam_l.sizeData;
                 decodeJPEG(msg + msg_pos, lCam_r.sizeData, (uint32_t*)inPixelSource_r);
@@ -1120,13 +1120,14 @@ void ros4mat_camera_stereo(int nlhs, mxArray *plhs[], int nrhs, const mxArray *p
             for(x = y, a = b; x < y + lCam_l.width * 3; a += lCam_l.height)
             {
                 /* Handling both images at the same time. First R left, then R right, then G left... */
-                #define DESTINATION_STRIDE_STEREO     a + i * sizeImg / 2 + lCam_l.width * lCam_l.height
-                out_data_l[DESTINATION_STRIDE_STEREO * 0] = inPixelSource_l[x];
-                out_data_r[DESTINATION_STRIDE_STEREO * 0] = inPixelSource_r[x++];
-                out_data_l[DESTINATION_STRIDE_STEREO * 1] = inPixelSource_l[x];
-                out_data_r[DESTINATION_STRIDE_STEREO * 1] = inPixelSource_r[x++];
-                out_data_l[DESTINATION_STRIDE_STEREO * 2] = inPixelSource_l[x];
-                out_data_r[DESTINATION_STRIDE_STEREO * 2] = inPixelSource_r[x++];
+                #define DESTINATION_STRIDE_STEREO_L     a + i * sizeImg_l / 2 + lCam_l.width * lCam_l.height
+                #define DESTINATION_STRIDE_STEREO_R     a + i * sizeImg_r / 2 + lCam_l.width * lCam_l.height
+                out_data_l[DESTINATION_STRIDE_STEREO_L * 0] = inPixelSource_l[x];
+                out_data_r[DESTINATION_STRIDE_STEREO_R * 0] = inPixelSource_r[x++];
+                out_data_l[DESTINATION_STRIDE_STEREO_L * 1] = inPixelSource_l[x];
+                out_data_r[DESTINATION_STRIDE_STEREO_R * 1] = inPixelSource_r[x++];
+                out_data_l[DESTINATION_STRIDE_STEREO_L * 2] = inPixelSource_l[x];
+                out_data_r[DESTINATION_STRIDE_STEREO_R * 2] = inPixelSource_r[x++];
             }
         }
     }
