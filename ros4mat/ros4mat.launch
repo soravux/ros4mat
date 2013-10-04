@@ -8,8 +8,8 @@
   <node name="E_Camera" pkg="ros4mat" type="E_Camera" respawn="true" />
   <node name="hokuyo_node" pkg="hokuyo_node" type="hokuyo_node" respawn="false"/>
   <node name="E_StereoCamera" pkg="ros4mat" type="E_StereoCamera" respawn="true" />
-  <node name="E_Kinect" pkg="ros4mat" type="E_Kinect" respawn="true" />
+  <!-- <node name="E_Kinect" pkg="ros4mat" type="E_Kinect" respawn="true" />
   <include file="$(find openni_launch)/launch/openni.launch">
   </include>
-  <!-- <node name="openni_node" pkg="openni_camera" type="openni_node" args="_depth_registration:=true" respawn="true" /> -->
+   <node name="openni_node" pkg="openni_camera" type="openni_node" args="_depth_registration:=true" respawn="true" /> -->
 </launch>
