@@ -966,13 +966,13 @@ int subscribeTo(unsigned char typeCapteur, uint32_t bufferSize, char* info, bool
         break;
 
     case MSGID_KINECT:
-        if(!(console = popen("rosservice list | grep /D_Kinect/params/params | wc -l", "r"))){
+        if(!(console = popen("rosservice list | grep /D_Kinect/params | wc -l", "r"))){
             ROS_WARN("Impossible de verifier si le node Kinect est lance!");
         }
         fgets(bufR, sizeof(bufR), console);
         if(bufR[0] == '0'){
             ROS_ERROR("Node Kinect not started!");
-            in_client.lasterror = "The Kinect node is not started or crashed (no service at /D_Kinect/params/params). Impossible to subscribe";
+            in_client.lasterror = "The Kinect node is not started or crashed (no service at /D_Kinect/params). Impossible to subscribe";
             in_client.lasterror_issued_by = "subscribeTo";
             return -1;
         }
