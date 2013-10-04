@@ -140,7 +140,6 @@ int init_winsock()
 void send_message(const char type, uint32_t qty, char *payload, uint32_t payload_size)
 {
     char            *msg;
-    msgHeader       lHeader;
     unsigned int    i = 0;
 
     if (initialized == 0 && type != MSGID_CONNECT) {
@@ -238,7 +237,7 @@ int receive_message_header(void **msg)
         }*/
 
         /* Reception des donnes du capteur */
-        recvBytes += recv(*main_socket, *msg + recvBytes, sizeof(msgHeader) - recvBytes, 0);
+        recvBytes += recv(*main_socket, (char*)(*msg) + recvBytes, sizeof(msgHeader) - recvBytes, 0);
     }
 
     /* Remote error handling */
@@ -428,6 +427,7 @@ void decodeJPEG(char *inStream, uint32_t dataSize, uint32_t *outImage){
         return;
     }
     memcpy(out, njGetImage(), njGetImageSize());
+    njDone();
 }
 
 /*******************************************************************************
@@ -807,6 +807,7 @@ void ros4mat_serial(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     msgHeader       lHeader;
     msgSerialAns    lSerieAns;
     int             h, lPortSize, i;
+    unsigned int    k;
     long            uncompressSize;
     char            *out_data;
 
@@ -837,8 +838,8 @@ void ros4mat_serial(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     }
 
     /* Copy data to the message. */
-    for(h = 0; h < ((msgSerialCmd*)msg)->sendLength * 2; h += 2) {
-        *(msg + sizeof(msgSerialCmd) + lPortSize + (h / 2)) = ((unsigned char *) mxGetChars(prhs[4]))[h];
+    for(k = 0; k < ((msgSerialCmd*)msg)->sendLength * 2; k += 2) {
+        *(msg + sizeof(msgSerialCmd) + lPortSize + (k / 2)) = ((unsigned char *) mxGetChars(prhs[4]))[k];
     }
 
     /* Send the message */
@@ -993,6 +994,9 @@ void format_camera_image(msgCam *lCam, char *msg, unsigned int i, unsigned char 
             out_data[DESTINATION_STRIDE * 2] = inPixelSource[x++];
         }
     }
+
+    if(lCam->compressionType != MSGID_WEBCAM_NOCOMPRESSION)
+        mxFree(inPixelSource);
 
     out_data_ts[i] = (double) lCam->timestamp;
 }
