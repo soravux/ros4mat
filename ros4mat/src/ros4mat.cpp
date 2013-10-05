@@ -1289,6 +1289,53 @@ int sendDigitalOutCmd(msgDigitalOut *info)
     return 0;
 }
 
+/*
+struct send_args {
+    int sockfd,
+    void *buf,
+    size_t len,
+    int flags
+};
+
+std::vector<pthread_t> concurrent_threads;
+
+void *send_sub_thread(void *args) {
+    // TODO: Add a timeout
+    send(
+        ((struct send_args*)args)->sockfd,
+        ((struct send_args*)args)->buf,
+        ((struct send_args*)args)->len,
+        ((struct send_args*)args)->flags
+    );
+    return NULL;
+}
+
+int r4m_async_send(int sockfd, const void *buf, size_t len, int flags)
+{
+    // Re-implements the standard "send" asynchrneously
+    pthread_t this_thread;
+    concurrent_threads.push_back(this_thread);
+
+    struct send_args args;
+    args.sockfd = sockfd;
+    args.buf = buf;
+    args.len = len;
+    args.flags = flags;
+
+    status = pthread_create(
+        &(concurrent_threads.back()),
+        NULL,
+        send_sub_thread,
+        &args
+    );
+    if(status) {
+        ROS_ERROR("Error: pthread_create returned %d\n", status);
+        return -1;
+    }
+
+    return 0;
+} */
+
 int sendError(int socketFd, char reqType, char errCode, std::string errorStr){
     msgHeader lErrorHeader;
     lErrorHeader.type = reqType;
