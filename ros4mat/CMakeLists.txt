@@ -42,6 +42,7 @@ rosbuild_add_executable(E_Logico src/ros4mat.cpp ../thirdparty/easyzlib.c)
 target_link_libraries(E_IMU phidget21)
 target_link_libraries(E_StereoCamera boost_signals)
 target_link_libraries(E_Kinect boost_signals)
+target_link_libraries(E_Logico pthread)
 
 #common commands for building c++ executables and libraries
 #rosbuild_add_library(${PROJECT_NAME} src/example.cpp)
