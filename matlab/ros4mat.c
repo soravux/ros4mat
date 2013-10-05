@@ -487,15 +487,11 @@ void ros4mat_subscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[
         /* Parse parameters for each sensor */
         switch (lSubscribeMessage.typeCapteur) {
             case MSGID_ADC:
-                if (nrhs > 2) {
-                    lParameters.adc.channels = (unsigned char) mxGetScalar(prhs[2]);
-                } else {
-                    lParameters.adc.channels = 0xFF;
-                }
                 if (!lParamSize) { lParamSize = sizeof(paramsAdc); }
+                lParameters.adc.channels = nrhs > 2 ? (unsigned char) mxGetScalar(prhs[2]) : 0xFF;
             case MSGID_GPS:
             case MSGID_IMU:
-                /* These messages have freqSend added */
+                if (!lParamSize) { lParamSize = sizeof(paramsImu); }
                 if (nrhs > 4) {
                     lParameters.adc.freqSend = (uint16_t) mxGetScalar(prhs[4]);
                     if (lParameters.adc.freqSend > (uint16_t) mxGetScalar(prhs[1])) {
@@ -505,69 +501,70 @@ void ros4mat_subscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[
                     /* Put default freqSend value based of freqAcquisition */
                     lParameters.adc.freqSend = (uint16_t) ((float) mxGetScalar(prhs[1]) / 4.0 + 10.0);
                 }
-                if (!lParamSize) { lParamSize = sizeof(paramsImu); }
             case MSGID_HOKUYO:
             case MSGID_COMPUTER:
-                lParameters.adc.freqAcquisition = (uint16_t) mxGetScalar(prhs[1]);
                 if (!lParamSize) { lParamSize = sizeof(paramsHokuyo); }
+                lParameters.adc.freqAcquisition = (uint16_t) mxGetScalar(prhs[1]);
                 break;
-
             case MSGID_WEBCAM_STEREO:
                 if (!lParamSize) { lParamSize = sizeof(paramsStereoCam); }
-                if (nrhs > 5) {
-                    lParameters.stereocam.idLeft = (unsigned char) mxGetScalar(prhs[5]);
+                lParameters.stereocam.idLeft = nrhs > 5 ? (unsigned char) mxGetScalar(prhs[5]) : 0;
+                lParameters.stereocam.idRight = nrhs > 6 ? (unsigned char) mxGetScalar(prhs[6]) : 1;
+                lParameters.stereocam.compression = nrhs > 7 ? (unsigned char) mxGetScalar(prhs[7]) : MSGID_WEBCAM_NOCOMPRESSION;
+                lParameters.stereocam.exposureLeft = nrhs > 8 ? (unsigned short) mxGetScalar(prhs[8]) : 300;
+                lParameters.stereocam.exposureRight = nrhs > 9 ? (unsigned short) mxGetScalar(prhs[9]) : 300;
+                if (nrhs > 17) {
+                    /* ROI parsing */
+                    lParameters.stereocam.useROI = 1;
+                    lParameters.stereocam.leftRoiTopLeft = (unsigned short) mxGetScalar(prhs[8]);
+                    lParameters.stereocam.leftRoiTopRight = (unsigned short) mxGetScalar(prhs[9]);
+                    lParameters.stereocam.leftRoiBottomLeft = (unsigned short) mxGetScalar(prhs[10]);
+                    lParameters.stereocam.leftRoiBottomRight = (unsigned short) mxGetScalar(prhs[11]);
+                    lParameters.stereocam.rightRoiTopLeft = (unsigned short) mxGetScalar(prhs[8]);
+                    lParameters.stereocam.rightRoiTopRight = (unsigned short) mxGetScalar(prhs[9]);
+                    lParameters.stereocam.rightRoiBottomLeft = (unsigned short) mxGetScalar(prhs[10]);
+                    lParameters.stereocam.rightRoiBottomRight = (unsigned short) mxGetScalar(prhs[11]);
                 }
-                if (nrhs > 6) {
-                    lParameters.stereocam.idRight = (unsigned char) mxGetScalar(prhs[6]);
-                }
-                if (nrhs > 7) {
-                    lParameters.stereocam.compression = (unsigned char) mxGetScalar(prhs[7]);
-                }
-                if (nrhs > 8) {
-                    lParameters.stereocam.exposureLeft = (unsigned short) mxGetScalar(prhs[8]);
-                } else {
-                    lParameters.stereocam.exposureLeft = 300;
-                }
-                if (nrhs > 9) {
-                    lParameters.stereocam.exposureRight = (unsigned short) mxGetScalar(prhs[9]);
-                } else {
-                    lParameters.stereocam.exposureRight = 300;
-                }
+
                 /* I'm sorry! :( */
                 goto parse_resolution;
             case MSGID_WEBCAM:
                 if (!lParamSize) { lParamSize = sizeof(paramsCamera); }
-                if (nrhs > 6) {
-                    lParameters.cam.compression = (unsigned char) mxGetScalar(prhs[6]);
-                } else {
-                    lParameters.cam.compression = MSGID_WEBCAM_NOCOMPRESSION;
+                lParameters.cam.id = nrhs > 5 ? (unsigned char) mxGetScalar(prhs[5]) : 0;
+                lParameters.cam.compression = nrhs > 6 ? (unsigned char) mxGetScalar(prhs[6]) : MSGID_WEBCAM_NOCOMPRESSION;
+                lParameters.cam.exposure = nrhs > 7 ? (unsigned short) mxGetScalar(prhs[7]) : 300;
+                if (nrhs > 11) {
+                    /* ROI parsing */
+                    lParameters.cam.useROI = 1;
+                    lParameters.cam.roiTopLeft = (unsigned short) mxGetScalar(prhs[8]);
+                    lParameters.cam.roiTopRight = (unsigned short) mxGetScalar(prhs[9]);
+                    lParameters.cam.roiBottomLeft = (unsigned short) mxGetScalar(prhs[10]);
+                    lParameters.cam.roiBottomRight = (unsigned short) mxGetScalar(prhs[11]);
                 }
-                if (nrhs > 7) {
-                    lParameters.cam.exposure = (unsigned short) mxGetScalar(prhs[7]);
-                } else {
-                    lParameters.cam.exposure = 300;
-                }
-                /* Camera ID */
-                if (nrhs > 5) {
-                    lParameters.cam.id = (unsigned char) mxGetScalar(prhs[5]);
-                }
+
                 goto parse_resolution;
             case MSGID_KINECT:
                 if (!lParamSize) { lParamSize = sizeof(paramsKinect); }
-
-                /* Camera ID */
-                if (nrhs > 5) {
-                    lParameters.cam.id = (unsigned char) mxGetScalar(prhs[5]);
+                lParameters.kinect.id = nrhs > 5 ? (unsigned char) mxGetScalar(prhs[5]) : 0;
+                lParameters.kinect.compressionRGB = nrhs > 6 ? (unsigned char) mxGetScalar(prhs[6]) : MSGID_WEBCAM_NOCOMPRESSION;
+                if (nrhs > 10) {
+                    /* Depth ROI parsing */
+                    lParameters.kinect.DepthUseROI = 1;
+                    lParameters.kinect.DepthRoiTopLeft = (unsigned short) mxGetScalar(prhs[7]);
+                    lParameters.kinect.DepthRoiTopRight = (unsigned short) mxGetScalar(prhs[8]);
+                    lParameters.kinect.DepthRoiBottomLeft = (unsigned short) mxGetScalar(prhs[9]);
+                    lParameters.kinect.DepthRoiBottomRight = (unsigned short) mxGetScalar(prhs[10]);
                 }
-
-                if (nrhs > 6) {
-                    lParameters.kinect.compressionRGB = (unsigned char) mxGetScalar(prhs[6]);
-                } else {
-                    lParameters.kinect.compressionRGB = MSGID_WEBCAM_NOCOMPRESSION;
+                if (nrhs > 14) {
+                    /* RGB ROI parsing */
+                    lParameters.kinect.RGBUseROI = 1;
+                    lParameters.kinect.RGBRoiTopLeft = (unsigned short) mxGetScalar(prhs[11]);
+                    lParameters.kinect.RGBRoiTopRight = (unsigned short) mxGetScalar(prhs[12]);
+                    lParameters.kinect.RGBRoiBottomLeft = (unsigned short) mxGetScalar(prhs[13]);
+                    lParameters.kinect.RGBRoiBottomRight = (unsigned short) mxGetScalar(prhs[14]);
                 }
 
             parse_resolution:
-                /* Parse resolution */
                 if (mxGetString(prhs[2], StrBuffer, sizeof(StrBuffer) - 1)) {
                     mexErrMsgTxt("Error: Could not interpretate resolution.");
                 }
@@ -587,16 +584,16 @@ void ros4mat_subscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[
                 break;
         }
         lSubscribeMessage.paramsSize = lParamSize;
-        /* Step 3: Build a message composed of [ msgSubscribe |  parameters ] */
     } /* end not silent subscription */
 
+    /* Step 3: Build a message composed of [ msgSubscribe |  parameters ] */
     msg = mxMalloc( sizeof(msgSubscribe) + lParamSize);
     memcpy(
         msg,
         &lSubscribeMessage,
         sizeof(msgSubscribe)
     );
-    
+
     memcpy(
         msg + sizeof(msgSubscribe),
         &lParameters,
@@ -610,7 +607,6 @@ void ros4mat_subscribe(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[
         msg,
         sizeof(msgSubscribe) + lParamSize
     );
-    
 
     /* Step 5: Wait for the acknowledge */
     receive_message_header((void**)&msg);

@@ -115,13 +115,13 @@ struct paramsStereoCam{
     unsigned char compression;      /* Compression de l'image (0 = pas de compression, 0<n<100 = JPEG) */
     short exposureLeft;             /* Manual camera left exposure */
     short exposureRight;            /* Manual camera right exposure */
-    unsigned char useROI;           /* Definit si on doit seulement envoyer une partie de l'image */
-    unsigned short leftRoiTopLeft;  /* Coordonnees de la sous-image a envoyer pour la camera de GAUCHE */
-    unsigned short leftRoiTopRight;     
+    unsigned char useROI;           /* Activates a Region of Interest (ROI). Images will be cropped to the rectangle defined below */
+    unsigned short leftRoiTopLeft;  /* Coordinates of the sub-image to send for the LEFT camera */
+    unsigned short leftRoiTopRight;
     unsigned short leftRoiBottomLeft;
     unsigned short leftRoiBottomRight;
-    unsigned short rightRoiTopLeft; /* Coordonnees de la sous-image a envoyer pour la camera de DROITE */
-    unsigned short rightRoiTopRight;     
+    unsigned short rightRoiTopLeft; /* Coordinates of the sub-image to send for the RIGHT camera */
+    unsigned short rightRoiTopRight;
     unsigned short rightRoiBottomLeft;
     unsigned short rightRoiBottomRight;
 } PACKEDSTRUCT;
@@ -136,6 +136,16 @@ struct paramsKinect{
     unsigned char sendDepth;        /* Acquisitionner ou non l'image de profondeur */
     unsigned short fpsDepth;        /* Nombre d'images par seconde */
     unsigned char compressionRGB;   /* Compression de l'image RGB (0 = pas de compression, 0<n<100 = JPEG) */
+    unsigned char DepthUseROI;      /* Activates a Region of Interest (ROI) for DEPTH. Images will be cropped to the rectangle defined below */
+    unsigned short DepthRoiTopLeft; /* Coordinates of the sub-image to send for the DEPTH camera */
+    unsigned short DepthRoiTopRight;
+    unsigned short DepthRoiBottomLeft;
+    unsigned short DepthRoiBottomRight;
+    unsigned char RGBUseROI;      /* Activates a Region of Interest (ROI) for RGB. Images will be cropped to the rectangle defined below */
+    unsigned short RGBRoiTopLeft;   /* Coordinates of the sub-image to send for the RGB camera */
+    unsigned short RGBRoiTopRight;
+    unsigned short RGBRoiBottomLeft;
+    unsigned short RGBRoiBottomRight;
 } PACKEDSTRUCT;
 
 typedef struct paramsHokuyo paramsHokuyo;
