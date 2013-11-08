@@ -39,15 +39,25 @@ bool running = false;
 
 ros::Rate* loop_rate = 0;		// Pointeur car ne peut pas etre initialise avant ros::init()
 ros::NodeHandle* n = 0;
-ros::Publisher kinectPublisher;
+ros::Publisher kinectPublisher, tmpBufferPublisher;
 int nbrKinectSubscribers = 0;
 unsigned int dataId = 0;
 unsigned char compression = 0;
 
 
-typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image> MySyncPolicy;	
+typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image> MySyncPolicy;
+/*
+void dataKinectCameraFilter(const sensor_msgs::Image::ConstPtr& image){
+    if(image->encoding != "rgb8")
+        return;
+    
+    tmpBufferPublisher.publish(image);
+}*/
 
 void dataKinectSync(const sensor_msgs::Image::ConstPtr& imageRGB, const sensor_msgs::Image::ConstPtr& imageDepth){
+    if(imageRGB->encoding != "rgb8")
+        return;
+    
 	ros4mat::M_Kinect msg;
 	msg.header.seq = dataId++;
 	msg.header.stamp = ros::Time::now();
@@ -141,15 +151,17 @@ int main(int argc, char* argv[])
 	ROS_INFO("Service kinect synchronizer demarre...");
 
 	ros::ServiceServer service = n->advertiseService("D_Kinect/params", newConfKinect);
+    //tmpBufferPublisher = n->advertise<sensor_msgs::Image>("D_Kinect/tmpBufferImg", 30);
 
-    ros::Rate l_loop_rate = ros::Rate(30.);
+    ros::Rate l_loop_rate = ros::Rate(60.);
 	// Ok, c'est epouvantable, mais je vois pas comment faire autrement
 	loop_rate = &l_loop_rate;
 
         /* Connecting to a maybe-not-already-published topic. This hack is to handle the sync()
         variable that seems to fall out of scope in the external function. */
-	message_filters::Subscriber<sensor_msgs::Image> imageRGB_sub(*n, "/camera/rgb/image_color", 30);
-        message_filters::Subscriber<sensor_msgs::Image> imageDepth_sub(*n, "/camera/depth/image_raw", 30);
+    //ros::Subscriber  sub = n->subscribe("/camera/rgb/image_color", 10, dataKinectCameraFilter);
+	message_filters::Subscriber<sensor_msgs::Image> imageRGB_sub(*n, "/camera/rgb/image_color", 3);
+    message_filters::Subscriber<sensor_msgs::Image> imageDepth_sub(*n, "/camera/depth/image_raw", 3);
 
         // ApproximateTime takes a queue size as its constructor argument, hence MySyncPolicy(10)
         message_filters::Synchronizer<MySyncPolicy> sync(MySyncPolicy(10), imageRGB_sub, imageDepth_sub);
@@ -157,7 +169,7 @@ int main(int argc, char* argv[])
         sync.registerCallback(boost::bind(dataKinectSync, _1, _2));
 
 
-	kinectPublisher = n->advertise<ros4mat::M_Kinect>("D_Kinect/data", 30);
+	kinectPublisher = n->advertise<ros4mat::M_Kinect>("D_Kinect/data", 10);
 	
 	
     initialised = true;
