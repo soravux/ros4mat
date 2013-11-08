@@ -1221,7 +1221,12 @@ void ros4mat_kinect(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
             out_data_rgb,
             out_data_ts
         );
-        image_in_msg += lKinect.infoRGB.sizeData;
+        if(lKinect.infoRGB.compressionType == MSGID_WEBCAM_NOCOMPRESSION){
+            image_in_msg += lKinect.infoRGB.sizeData;
+        }
+        else{
+            image_in_msg += ((msgKinect*)(msg + sizeof(msgHeader) + i * sizeof(msgKinect)))->infoRGB.sizeData;
+        }
 
         /* Process Depth */
         format_kinect_depth(
