@@ -1,15 +1,20 @@
 <launch>
-  <node name="E_IMU" pkg="ros4mat" type="E_IMU" respawn="true" />
-  <node name="E_ADC" pkg="ros4mat" type="E_ADC" respawn="true" />
+  <node name="E_IMU" pkg="ros4mat" type="E_IMU" respawn="false" />
+  <node name="E_ADC" pkg="ros4mat" type="E_ADC" respawn="false" />
   <node name="gpsd_client" pkg="gpsd_client" type="gpsd_client" args="_use_gps_time:=false" respawn="false" />
-  <node name="E_Computer" pkg="ros4mat" type="E_Computer" respawn="true" />
-  <node name="E_Serial" pkg="ros4mat" type="E_Serial" respawn="true" />
+  <node name="E_Computer" pkg="ros4mat" type="E_Computer" respawn="false" />
+  <node name="E_Serial" pkg="ros4mat" type="E_Serial" respawn="false" />
   <node name="E_Logico" pkg="ros4mat" type="E_Logico" respawn="true" />
   <node name="E_Camera" pkg="ros4mat" type="E_Camera" respawn="false" />
   <node name="hokuyo_node" pkg="hokuyo_node" type="hokuyo_node" respawn="false"/>
-  <node name="E_StereoCamera" pkg="ros4mat" type="E_StereoCamera" respawn="true" />
+  <node name="E_StereoCamera" pkg="ros4mat" type="E_StereoCamera" respawn="false" />
   <node name="E_Kinect" pkg="ros4mat" type="E_Kinect" respawn="false" />
+  <!-- Set driver params for 320x240 at 1-2 Hz frame rate -->
+  <!-- <param name="/camera/driver/data_skip" value="10" /> --><!-- 0 is default, 10 will drop 9/10 frames -->
+  <!-- <param name="/camera/driver/image_mode" value="8" /> --><!-- 2 is default -->
+  <!-- <param name="/camera/driver/depth_mode" value="2" /> --><!-- 2 is default --> 
+  <!-- <param name="/camera/driver/depth_registration" value="true" /> -->
   <include file="$(find openni_launch)/launch/openni.launch">
   </include>
-   <node name="openni_node" pkg="openni_camera" type="openni_node" args="_depth_registration:=true" respawn="true" />
+   <node name="openni_node" pkg="openni_camera" type="openni_node" args="_depth_registration:=true" respawn="false" />
 </launch>
